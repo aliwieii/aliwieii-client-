@@ -17,8 +17,10 @@ public abstract class Module {
     private final String descriptionAr;
     private final ModuleCategory category;
     private final boolean defaultEnabled;
+    private final int defaultKeyCode;
 
     private boolean enabled;
+    private boolean registeredOnBus = false;
     private int keyCode;
 
     protected Module(
@@ -38,19 +40,24 @@ public abstract class Module {
         this.descriptionAr = descriptionAr;
         this.category = category;
         this.defaultEnabled = defaultEnabled;
-        this.enabled = defaultEnabled;
+        this.defaultKeyCode = defaultKeyCode;
+        this.enabled = false;
         this.keyCode = defaultKeyCode;
+        setEnabled(defaultEnabled);
     }
 
-    public void setEnabled(boolean enabled) {
-        if (this.enabled == enabled) {
+    public final void setEnabled(boolean targetEnabled) {
+        if (this.enabled == targetEnabled && (targetEnabled == this.registeredOnBus)) {
             return;
         }
-        this.enabled = enabled;
-        if (enabled) {
-            onEnable();
-        } else {
-            onDisable();
+        this.enabled = targetEnabled;
+        try {
+            if (targetEnabled) {
+                onEnable();
+            } else {
+                onDisable();
+            }
+        } catch (Throwable ignored) {
         }
     }
 
@@ -59,14 +66,21 @@ public abstract class Module {
     }
 
     protected void onEnable() {
-        MinecraftForge.EVENT_BUS.register(this);
+        if (!registeredOnBus) {
+            MinecraftForge.EVENT_BUS.register(this);
+            registeredOnBus = true;
+        }
     }
 
     protected void onDisable() {
-        MinecraftForge.EVENT_BUS.unregister(this);
+        if (registeredOnBus) {
+            MinecraftForge.EVENT_BUS.unregister(this);
+            registeredOnBus = false;
+        }
     }
 
     public void resetToDefault() {
+        this.keyCode = defaultKeyCode;
         setEnabled(defaultEnabled);
     }
 
@@ -96,6 +110,10 @@ public abstract class Module {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public boolean isDefaultEnabled() {
+        return defaultEnabled;
     }
 
     public int getKeyCode() {

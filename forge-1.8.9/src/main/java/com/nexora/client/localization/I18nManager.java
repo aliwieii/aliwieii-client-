@@ -48,20 +48,27 @@ public final class I18nManager {
         register("nav.visuals", "الرسوميات", "Visuals");
         register("nav.inventory", "المخزون", "Inventory");
         register("nav.profiles", "ملفات الإعدادات", "Profiles");
-        register("nav.mods", "المودات", "Mods");
+        register("nav.mods", "كل الميزات", "All Mods");
         register("nav.settings", "الإعدادات", "Settings");
         register("nav.about", "حول NEXORA", "About NEXORA");
 
         register("ui.search_placeholder", "ابحث عن ميزة أو أداة...", "Search modules or features...");
-        register("ui.enabled", "مفعل", "Enabled");
-        register("ui.disabled", "معطل", "Disabled");
-        register("ui.reset_defaults", "استعادة الافتراضي", "Reset Defaults");
+        register("ui.enabled", "مفعل", "ON");
+        register("ui.disabled", "معطل", "OFF");
+        register("ui.reset_defaults", "استعادة الافتراضي", "Reset All");
+        register("ui.reset_item", "إعادة ضبط العنصر", "Reset Item");
         register("ui.open_hud_editor", "فتح محرر HUD", "Open HUD Editor");
         register("ui.save_changes", "حفظ التعديلات", "Save Changes");
-        register("ui.grid_toggle", "إظهار الشبكة", "Toggle Grid");
+        register("ui.grid_toggle", "الشبكة", "Grid");
         register("ui.auto_arrange", "ترتيب تلقائي", "Auto Arrange");
         register("ui.language", "اللغة", "Language");
         register("ui.profile_active", "الملف النشط", "Active Profile");
+        register("ui.locked", "مقفل", "Locked");
+        register("ui.unlocked", "حر", "Unlocked");
+        register("ui.bg_on", "خلفية: نعم", "BG: ON");
+        register("ui.bg_off", "خلفية: لا", "BG: OFF");
+        register("ui.color", "اللون", "Color");
+        register("ui.back", "رجوع", "Back");
     }
 
     private I18nManager() {

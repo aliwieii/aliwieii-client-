@@ -9,6 +9,8 @@ import com.nexora.client.hud.HudModule;
 import com.nexora.client.localization.I18nManager;
 import com.nexora.client.modules.Module;
 import com.nexora.client.modules.ModuleManager;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -23,12 +25,13 @@ import java.util.concurrent.Executors;
 
 /**
  * NEXORA CLIENT — Schema-Versioned Central Configuration Manager.
- * Performs disk I/O strictly off the Render Loop via a single background executor,
- * validates values, and recovers gracefully from corrupted JSON files.
+ * Performs atomic disk I/O strictly off the Render Loop via a single background executor,
+ * validates coordinate values, and never overwrites a valid profile upon write failure.
  */
 public final class ConfigManager {
 
-    public static final int CURRENT_SCHEMA_VERSION = 1;
+    public static final int CURRENT_SCHEMA_VERSION = 2;
+    private static final Logger LOGGER = LogManager.getLogger("NEXORA-Config");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final File configDir;
@@ -45,7 +48,7 @@ public final class ConfigManager {
     }
 
     public File getProfileFile(String profileName) {
-        String safeName = profileName.replaceAll("[^a-zA-Z0-9_\\- ]", "_").trim();
+        String safeName = profileName == null ? "Default" : profileName.replaceAll("[^a-zA-Z0-9_\\- ]", "_").trim();
         if (safeName.isEmpty()) {
             safeName = "Default";
         }
@@ -53,10 +56,12 @@ public final class ConfigManager {
     }
 
     public void loadProfile(String profileName) {
-        this.activeProfileName = profileName;
-        File file = getProfileFile(profileName);
+        if (profileName != null && !profileName.trim().isEmpty()) {
+            this.activeProfileName = profileName.trim();
+        }
+        File file = getProfileFile(this.activeProfileName);
         if (!file.exists()) {
-            saveProfileAsync(profileName);
+            saveProfileAsync(this.activeProfileName);
             return;
         }
 
@@ -79,6 +84,13 @@ public final class ConfigManager {
                 I18nManager.setCurrentLanguage("en".equalsIgnoreCase(lang) ? I18nManager.Language.EN : I18nManager.Language.AR);
             }
 
+            if (root.has("hurtCamMultiplier")) {
+                moduleManager.setHurtCamMultiplier(root.get("hurtCamMultiplier").getAsFloat());
+            }
+            if (root.has("hitOverlayColor")) {
+                moduleManager.setHitOverlayColor(root.get("hitOverlayColor").getAsInt());
+            }
+
             if (root.has("modules") && root.get("modules").isJsonObject()) {
                 JsonObject modsObj = root.getAsJsonObject("modules");
                 for (Module m : moduleManager.getAllModules()) {
@@ -92,17 +104,32 @@ public final class ConfigManager {
                         }
                         if (m instanceof HudModule) {
                             HudModule hm = (HudModule) m;
-                            if (mObj.has("x")) hm.setX(mObj.get("x").getAsFloat());
-                            if (mObj.has("y")) hm.setY(mObj.get("y").getAsFloat());
+                            if (mObj.has("locked")) {
+                                hm.setLocked(false); // allow coordinate load before locking
+                            }
+                            if (mObj.has("x")) {
+                                float lx = mObj.get("x").getAsFloat();
+                                if (!Float.isNaN(lx) && !Float.isInfinite(lx) && lx >= 0.0f && lx < 5000.0f) {
+                                    hm.forcePosition(lx, hm.getY());
+                                }
+                            }
+                            if (mObj.has("y")) {
+                                float ly = mObj.get("y").getAsFloat();
+                                if (!Float.isNaN(ly) && !Float.isInfinite(ly) && ly >= 0.0f && ly < 5000.0f) {
+                                    hm.forcePosition(hm.getX(), ly);
+                                }
+                            }
                             if (mObj.has("scale")) hm.setScale(mObj.get("scale").getAsFloat());
                             if (mObj.has("opacity")) hm.setOpacity(mObj.get("opacity").getAsFloat());
                             if (mObj.has("accentColor")) hm.setAccentColor(mObj.get("accentColor").getAsInt());
+                            if (mObj.has("showBackground")) hm.setShowBackground(mObj.get("showBackground").getAsBoolean());
                             if (mObj.has("locked")) hm.setLocked(mObj.get("locked").getAsBoolean());
                         }
                     }
                 }
             }
         } catch (Exception ex) {
+            LOGGER.warn("[NEXORA] Corrupted config file detected (" + file.getName() + "), recovering defaults.", ex);
             handleCorruptedConfig(file);
         } finally {
             if (reader != null) {
@@ -116,7 +143,10 @@ public final class ConfigManager {
     }
 
     private void handleCorruptedConfig(File corruptedFile) {
-        File backup = new File(configDir, corruptedFile.getName() + ".bak");
+        File backup = new File(configDir, corruptedFile.getName() + ".corrupt.bak");
+        if (backup.exists()) {
+            backup.delete();
+        }
         corruptedFile.renameTo(backup);
         for (Module m : moduleManager.getAllModules()) {
             m.resetToDefault();
@@ -124,25 +154,58 @@ public final class ConfigManager {
         saveProfileAsync(activeProfileName);
     }
 
+    /**
+     * Atomically writes the profile snapshot to a .tmp file first and only replaces
+     * the target file if serialization and disk flush succeed completely.
+     */
     public void saveProfileAsync(final String profileName) {
         final JsonObject snapshot = serializeCurrentState(profileName);
         final File targetFile = getProfileFile(profileName);
         ioExecutor.submit(new Runnable() {
             @Override
             public void run() {
-                BufferedWriter writer = null;
-                try {
-                    writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(targetFile), StandardCharsets.UTF_8));
-                    GSON.toJson(snapshot, writer);
-                    writer.flush();
-                } catch (Exception ignored) {
-                } finally {
-                    if (writer != null) {
-                        try { writer.close(); } catch (Exception ignored) {}
-                    }
-                }
+                saveSnapshotAtomically(snapshot, targetFile);
             }
         });
+    }
+
+    public void saveProfileSync(final String profileName) {
+        final JsonObject snapshot = serializeCurrentState(profileName);
+        final File targetFile = getProfileFile(profileName);
+        saveSnapshotAtomically(snapshot, targetFile);
+    }
+
+    private void saveSnapshotAtomically(JsonObject snapshot, File targetFile) {
+        String jsonText = GSON.toJson(snapshot);
+        if (jsonText == null || jsonText.length() < 20) {
+            return;
+        }
+        File tempFile = new File(configDir, targetFile.getName() + ".tmp");
+        BufferedWriter writer = null;
+        try {
+            writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tempFile), StandardCharsets.UTF_8));
+            writer.write(jsonText);
+            writer.flush();
+            writer.close();
+            writer = null;
+
+            if (tempFile.exists() && tempFile.length() > 20) {
+                if (targetFile.exists()) {
+                    File prevBackup = new File(configDir, targetFile.getName() + ".bak");
+                    if (prevBackup.exists()) {
+                        prevBackup.delete();
+                    }
+                    targetFile.renameTo(prevBackup);
+                }
+                tempFile.renameTo(targetFile);
+            }
+        } catch (Exception ex) {
+            LOGGER.warn("[NEXORA] Failed to save profile atomically: " + targetFile.getName(), ex);
+        } finally {
+            if (writer != null) {
+                try { writer.close(); } catch (Exception ignored) {}
+            }
+        }
     }
 
     private JsonObject serializeCurrentState(String profileName) {
@@ -150,6 +213,8 @@ public final class ConfigManager {
         root.addProperty("schemaVersion", CURRENT_SCHEMA_VERSION);
         root.addProperty("profileName", profileName);
         root.addProperty("language", I18nManager.getCurrentLanguage().getCode());
+        root.addProperty("hurtCamMultiplier", moduleManager.getHurtCamMultiplier());
+        root.addProperty("hitOverlayColor", moduleManager.getHitOverlayColor());
 
         JsonObject modsObj = new JsonObject();
         for (Module m : moduleManager.getAllModules()) {
@@ -163,6 +228,7 @@ public final class ConfigManager {
                 mObj.addProperty("scale", hm.getScale());
                 mObj.addProperty("opacity", hm.getOpacity());
                 mObj.addProperty("accentColor", hm.getAccentColor());
+                mObj.addProperty("showBackground", hm.isShowBackground());
                 mObj.addProperty("locked", hm.isLocked());
             }
             modsObj.add(m.getId(), mObj);

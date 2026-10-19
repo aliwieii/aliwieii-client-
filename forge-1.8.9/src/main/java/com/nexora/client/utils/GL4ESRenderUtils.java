@@ -11,7 +11,8 @@ import org.lwjgl.opengl.GL11;
 /**
  * NEXORA CLIENT — GL4ES & PojavLauncher Safe Rendering Engine (Adreno 710 Tested Pattern).
  * Avoids custom GLSL shaders that cause black screens or frame drops on mobile GL4ES.
- * Uses Tessellator, WorldRenderer, and lightweight GL11 state management.
+ * Uses native OpenGL ES 2.0 primitives (GL_TRIANGLE_FAN, GL_TRIANGLES, GL_LINE_LOOP)
+ * with Counter-Clockwise (CCW) vertex winding and strict GlStateManager restoration.
  */
 public final class GL4ESRenderUtils {
 
@@ -27,6 +28,16 @@ public final class GL4ESRenderUtils {
     }
 
     private GL4ESRenderUtils() {
+    }
+
+    public static void resetGlState() {
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableAlpha();
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     public static void drawRect(float left, float top, float right, float bottom, int color) {
@@ -50,6 +61,7 @@ public final class GL4ESRenderUtils {
         WorldRenderer worldrenderer = tessellator.getWorldRenderer();
         GlStateManager.enableBlend();
         GlStateManager.disableTexture2D();
+        GlStateManager.disableCull();
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
         GlStateManager.color(r, g, b, a);
 
@@ -60,11 +72,19 @@ public final class GL4ESRenderUtils {
         worldrenderer.pos(left, top, 0.0D).endVertex();
         tessellator.draw();
 
+        GlStateManager.enableCull();
         GlStateManager.enableTexture2D();
-        GlStateManager.disableBlend();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
+    /**
+     * Draws a rounded rectangle using GL_TRIANGLE_FAN (native OpenGL ES 2.0 primitive)
+     * with continuous Counter-Clockwise (CCW) vertex winding so it is never back-face culled.
+     */
     public static void drawRoundedRect(float x, float y, float width, float height, float radius, int color) {
+        if (width <= 0.0f || height <= 0.0f) {
+            return;
+        }
         if (radius <= 0.5f) {
             drawRect(x, y, x + width, y + height, color);
             return;
@@ -78,42 +98,52 @@ public final class GL4ESRenderUtils {
         float green = (float) (color >> 8 & 255) / 255.0F;
         float blue = (float) (color & 255) / 255.0F;
 
-        GL11.glPushMatrix();
+        GlStateManager.pushMatrix();
         GlStateManager.enableBlend();
         GlStateManager.disableTexture2D();
+        GlStateManager.disableCull();
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
         GlStateManager.color(red, green, blue, alpha);
 
         Tessellator tessellator = Tessellator.getInstance();
         WorldRenderer wr = tessellator.getWorldRenderer();
-        wr.begin(GL11.GL_POLYGON, DefaultVertexFormats.POSITION);
+        wr.begin(GL11.GL_TRIANGLE_FAN, DefaultVertexFormats.POSITION);
+
+        // Center anchor vertex for triangle fan
+        wr.pos(x + width / 2.0f, y + height / 2.0f, 0.0D).endVertex();
 
         int step = 15;
-        // Top-left corner
-        for (int i = 0; i <= 90; i += step) {
+        // 1. Top-Left corner: (x+r, y) -> (x, y+r)
+        for (int i = 90; i >= 0; i -= step) {
             wr.pos(x + r - COS_LUT[i] * r, y + r - SIN_LUT[i] * r, 0.0D).endVertex();
         }
-        // Bottom-left corner
-        for (int i = 90; i >= 0; i -= step) {
+        // 2. Bottom-Left corner: (x, y2-r) -> (x+r, y2)
+        for (int i = 0; i <= 90; i += step) {
             wr.pos(x + r - COS_LUT[i] * r, y2 - r + SIN_LUT[i] * r, 0.0D).endVertex();
         }
-        // Bottom-right corner
-        for (int i = 0; i <= 90; i += step) {
+        // 3. Bottom-Right corner: (x2-r, y2) -> (x2, y2-r)
+        for (int i = 90; i >= 0; i -= step) {
             wr.pos(x2 - r + COS_LUT[i] * r, y2 - r + SIN_LUT[i] * r, 0.0D).endVertex();
         }
-        // Top-right corner
-        for (int i = 90; i >= 0; i -= step) {
+        // 4. Top-Right corner: (x2, y+r) -> (x2-r, y)
+        for (int i = 0; i <= 90; i += step) {
             wr.pos(x2 - r + COS_LUT[i] * r, y + r - SIN_LUT[i] * r, 0.0D).endVertex();
         }
+        // Close fan back to first perimeter vertex (x+r, y)
+        wr.pos(x + r, y, 0.0D).endVertex();
 
         tessellator.draw();
+        GlStateManager.enableCull();
         GlStateManager.enableTexture2D();
-        GlStateManager.disableBlend();
-        GL11.glPopMatrix();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.popMatrix();
     }
 
     public static void drawBorderedRoundedRect(float x, float y, float width, float height, float radius, float borderWidth, int bgColor, int borderColor) {
         drawRoundedRect(x, y, width, height, radius, bgColor);
+        if (width <= 0.0f || height <= 0.0f) {
+            return;
+        }
 
         float x2 = x + width;
         float y2 = y + height;
@@ -124,36 +154,38 @@ public final class GL4ESRenderUtils {
         float green = (float) (borderColor >> 8 & 255) / 255.0F;
         float blue = (float) (borderColor & 255) / 255.0F;
 
-        GL11.glPushMatrix();
+        GlStateManager.pushMatrix();
         GlStateManager.enableBlend();
         GlStateManager.disableTexture2D();
+        GlStateManager.disableCull();
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
         GlStateManager.color(red, green, blue, alpha);
-        GL11.glLineWidth(borderWidth);
+        GL11.glLineWidth(Math.max(1.0f, borderWidth));
 
         Tessellator tessellator = Tessellator.getInstance();
         WorldRenderer wr = tessellator.getWorldRenderer();
         wr.begin(GL11.GL_LINE_LOOP, DefaultVertexFormats.POSITION);
 
         int step = 15;
-        for (int i = 0; i <= 90; i += step) {
+        for (int i = 90; i >= 0; i -= step) {
             wr.pos(x + r - COS_LUT[i] * r, y + r - SIN_LUT[i] * r, 0.0D).endVertex();
         }
-        for (int i = 90; i >= 0; i -= step) {
+        for (int i = 0; i <= 90; i += step) {
             wr.pos(x + r - COS_LUT[i] * r, y2 - r + SIN_LUT[i] * r, 0.0D).endVertex();
         }
-        for (int i = 0; i <= 90; i += step) {
+        for (int i = 90; i >= 0; i -= step) {
             wr.pos(x2 - r + COS_LUT[i] * r, y2 - r + SIN_LUT[i] * r, 0.0D).endVertex();
         }
-        for (int i = 90; i >= 0; i -= step) {
+        for (int i = 0; i <= 90; i += step) {
             wr.pos(x2 - r + COS_LUT[i] * r, y + r - SIN_LUT[i] * r, 0.0D).endVertex();
         }
 
         tessellator.draw();
         GL11.glLineWidth(1.0F);
+        GlStateManager.enableCull();
         GlStateManager.enableTexture2D();
-        GlStateManager.disableBlend();
-        GL11.glPopMatrix();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.popMatrix();
     }
 
     /**
@@ -161,12 +193,12 @@ public final class GL4ESRenderUtils {
      */
     public static void drawNexoraEmblem(float centerX, float centerY, float size, int primaryColor, int secondaryColor) {
         float half = size / 2.0f;
-        GL11.glPushMatrix();
+        GlStateManager.pushMatrix();
         GlStateManager.enableBlend();
         GlStateManager.disableTexture2D();
+        GlStateManager.disableCull();
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
 
-        // Outer hexagonal frame
         float r1 = (float) (primaryColor >> 16 & 255) / 255.0F;
         float g1 = (float) (primaryColor >> 8 & 255) / 255.0F;
         float b1 = (float) (primaryColor & 255) / 255.0F;
@@ -184,7 +216,6 @@ public final class GL4ESRenderUtils {
         }
         tessellator.draw();
 
-        // Inner geometric N-blade
         float r2 = (float) (secondaryColor >> 16 & 255) / 255.0F;
         float g2 = (float) (secondaryColor >> 8 & 255) / 255.0F;
         float b2 = (float) (secondaryColor & 255) / 255.0F;
@@ -200,9 +231,10 @@ public final class GL4ESRenderUtils {
         tessellator.draw();
 
         GL11.glLineWidth(1.0F);
+        GlStateManager.enableCull();
         GlStateManager.enableTexture2D();
-        GlStateManager.disableBlend();
-        GL11.glPopMatrix();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.popMatrix();
     }
 
     public static void enableScissor(int x, int y, int width, int height) {

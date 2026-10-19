@@ -3,6 +3,7 @@ package com.nexora.client.core;
 import com.nexora.client.config.ConfigManager;
 import com.nexora.client.gui.GuiHudEditor;
 import com.nexora.client.gui.GuiNexoraMain;
+import com.nexora.client.modules.Module;
 import com.nexora.client.modules.ModuleManager;
 import com.nexora.client.profiles.ProfileManager;
 import net.minecraft.client.Minecraft;
@@ -19,6 +20,7 @@ import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
 
 import java.io.File;
+import java.util.List;
 
 /**
  * NEXORA CLIENT — Master Forge 1.8.9 Entry Point.
@@ -83,12 +85,12 @@ public class NexoraClient {
             @Override
             public void run() {
                 if (configManager != null && profileManager != null) {
-                    configManager.saveProfileAsync(profileManager.getActiveProfile());
+                    configManager.saveProfileSync(profileManager.getActiveProfile());
                 }
             }
         }, "Nexora-Config-Shutdown-Hook"));
 
-        LOGGER.info("[NEXORA] Successfully initialized " + moduleManager.getAllModules().size() + " core modules.");
+        LOGGER.info("[NEXORA] Successfully initialized " + moduleManager.getAllModules().size() + " core modules (" + moduleManager.getHudModules().size() + " HUD widgets).");
     }
 
     @SubscribeEvent
@@ -99,8 +101,29 @@ public class NexoraClient {
         }
         if (openGuiKey.isPressed()) {
             mc.displayGuiScreen(new GuiNexoraMain());
-        } else if (openHudEditorKey.isPressed()) {
+            return;
+        }
+        if (openHudEditorKey.isPressed()) {
             mc.displayGuiScreen(new GuiHudEditor());
+            return;
+        }
+        if (Keyboard.getEventKeyState()) {
+            int key = Keyboard.getEventKey();
+            if (key <= 0) {
+                return;
+            }
+            List<Module> all = moduleManager.getAllModules();
+            for (int i = 0; i < all.size(); i++) {
+                Module m = all.get(i);
+                // Hold-to-use modules (freelook, zoom) are polled directly in camera/FOV events
+                if ("freelook".equals(m.getId()) || "zoom".equals(m.getId())) {
+                    continue;
+                }
+                if (m.getKeyCode() == key) {
+                    m.toggle();
+                    configManager.saveProfileAsync(profileManager.getActiveProfile());
+                }
+            }
         }
     }
 

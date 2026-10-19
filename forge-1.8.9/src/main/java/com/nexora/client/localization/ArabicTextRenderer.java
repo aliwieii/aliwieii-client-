@@ -1,10 +1,10 @@
 package com.nexora.client.localization;
 
 import com.ibm.icu.text.ArabicShaping;
-import com.ibm.icu.text.ArabicShapingException;
 import com.ibm.icu.text.Bidi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.renderer.GlStateManager;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -65,7 +65,7 @@ public final class ArabicTextRenderer {
                 Bidi.DIRECTION_DEFAULT_RIGHT_TO_LEFT
             );
             result = bidi.writeReordered(Bidi.DO_MIRRORING);
-        } catch (ArabicShapingException e) {
+        } catch (Throwable t) {
             result = input;
         }
 
@@ -77,18 +77,25 @@ public final class ArabicTextRenderer {
 
     public static void drawString(String text, float x, float y, int color, boolean shadow) {
         FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
-        if (fr == null || text == null) {
+        if (fr == null || text == null || text.isEmpty()) {
             return;
         }
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableAlpha();
+        GlStateManager.enableBlend();
         String processed = shapeArabicText(text);
         fr.drawString(processed, x, y, color, shadow);
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     public static void drawAlignedString(String text, float x, float y, int width, int color, boolean rightAligned) {
         FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
-        if (fr == null || text == null) {
+        if (fr == null || text == null || text.isEmpty()) {
             return;
         }
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableAlpha();
+        GlStateManager.enableBlend();
         String processed = shapeArabicText(text);
         if (rightAligned) {
             int textWidth = fr.getStringWidth(processed);
@@ -96,11 +103,12 @@ public final class ArabicTextRenderer {
         } else {
             fr.drawStringWithShadow(processed, x, y, color);
         }
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     public static int getStringWidth(String text) {
         FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
-        if (fr == null || text == null) {
+        if (fr == null || text == null || text.isEmpty()) {
             return 0;
         }
         return fr.getStringWidth(shapeArabicText(text));
