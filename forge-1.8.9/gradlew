@@ -116,6 +116,17 @@ esac
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
+# Preserve JDK 8 from setup-java (java-version: 8) for Java 8 compilation toolchain,
+# while allowing the Gradle daemon to use JDK 17 (JAVA_HOME_17_X64 on GitHub Actions)
+# required by Essential Loom and Architectury Pack200.
+if [ -n "$JAVA_HOME" ] && [ -z "$JDK8_HOME" ] ; then
+    JDK8_HOME="$JAVA_HOME"
+    export JDK8_HOME
+fi
+if [ -n "$JAVA_HOME_17_X64" ] && [ -x "$JAVA_HOME_17_X64/bin/java" ] ; then
+    JAVA_HOME="$JAVA_HOME_17_X64"
+    export JAVA_HOME
+fi
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then

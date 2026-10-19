@@ -3,6 +3,7 @@ import buildGradle from '../../forge-1.8.9/build.gradle?raw';
 import settingsGradle from '../../forge-1.8.9/settings.gradle?raw';
 import gradleProperties from '../../forge-1.8.9/gradle.properties?raw';
 import gradleWrapperProperties from '../../forge-1.8.9/gradle/wrapper/gradle-wrapper.properties?raw';
+import gradlewScript from '../../forge-1.8.9/gradlew?raw';
 import mcmodInfo from '../../forge-1.8.9/src/main/resources/mcmod.info?raw';
 import mixinsJson from '../../forge-1.8.9/src/main/resources/mixins.nexora.json?raw';
 import nexoraClientJava from '../../forge-1.8.9/src/main/java/com/nexora/client/core/NexoraClient.java?raw';
@@ -33,9 +34,16 @@ export const FORGE_PROJECT_FILES: ForgeProjectFile[] = [
   {
     path: '.github/workflows/build.yml',
     language: 'yaml',
-    roleAr: 'سير عمل GitHub Actions (JDK 17 لتشغيل Gradle/Loom/Pack200 + JDK 8 Toolchain لترجمة كود المود إلى Java 8 Bytecode).',
-    roleEn: 'GitHub Actions CI workflow provisioning JDK 17 (Gradle/Loom/Pack200 daemon) + JDK 8 Toolchain (Java 8 target bytecode).',
+    roleAr: 'سير عمل GitHub Actions مخصص لبناء مود Forge 1.8.9 فقط عبر actions/setup-java@v3 (Java 8) وتنفيذ ./gradlew clean build ورفع NEXORA-CLIENT-*.jar.',
+    roleEn: 'GitHub Actions workflow dedicated to forge-1.8.9 using actions/setup-java@v3 (java-version: 8), ./gradlew clean build, and actions/upload-artifact@v4.',
     content: workflowYml,
+  },
+  {
+    path: 'forge-1.8.9/gradlew',
+    language: 'gradle',
+    roleAr: 'سكربت تشغيل Gradle Wrapper مع ربط تلقائي لـ JDK 8 Toolchain وبيئة تشغيل Loom.',
+    roleEn: 'POSIX Gradle Wrapper launcher script preserving JDK 8 toolchain while launching Loom daemon.',
+    content: gradlewScript,
   },
   {
     path: 'forge-1.8.9/build.gradle',
