@@ -203,12 +203,12 @@ export const ForgeCodeViewer: React.FC<ForgeCodeViewerProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-[#8B949E]">
           <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3 space-y-1">
             <div className="font-semibold text-[#E6EDF3]">
-              {isRtl ? '1. بناء ملف الـ JAR تلقائياً' : '1. Automated JAR Build'}
+              {isRtl ? '1. بناء ملف الـ JAR تلقائياً (JDK 17 + JDK 8)' : '1. Automated JAR Build (JDK 17 + JDK 8)'}
             </div>
             <p>
               {isRtl
-                ? 'ارفع مجلد forge-1.8.9 وملف .github/workflows/build.yml إلى مستودع GitHub. سيقوم GitHub Actions بتثبيت JDK 8 Temurin وبناء ملف NEXORA-CLIENT-1.0.0-1.8.9.jar تلقائياً.'
-                : 'Push forge-1.8.9 and .github/workflows/build.yml to GitHub. GitHub Actions automatically provisions JDK 8 Temurin and outputs NEXORA-CLIENT-1.0.0-1.8.9.jar.'}
+                ? 'ارفع مجلد forge-1.8.9 وملف .github/workflows/build.yml إلى مستودع GitHub. يشغّل GitHub Actions بيئة Gradle 7.6.4 على JDK 17 (لتشغيل Essential Loom و Pack200) ويستخدم JDK 8 Toolchain لترجمة المود إلى Java 8 Bytecode (Major 52) وإنتاج NEXORA-CLIENT-1.0.0-1.8.9.jar.'
+                : 'Push forge-1.8.9 and .github/workflows/build.yml to GitHub. GitHub Actions runs Gradle 7.6.4 on JDK 17 (for Essential Loom & Pack200) while compiling mod classes via JDK 8 Toolchain into Java 8 bytecode (Major 52) inside NEXORA-CLIENT-1.0.0-1.8.9.jar.'}
             </p>
           </div>
           <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3 space-y-1">

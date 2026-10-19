@@ -2,6 +2,7 @@ import workflowYml from '../../.github/workflows/build.yml?raw';
 import buildGradle from '../../forge-1.8.9/build.gradle?raw';
 import settingsGradle from '../../forge-1.8.9/settings.gradle?raw';
 import gradleProperties from '../../forge-1.8.9/gradle.properties?raw';
+import gradleWrapperProperties from '../../forge-1.8.9/gradle/wrapper/gradle-wrapper.properties?raw';
 import mcmodInfo from '../../forge-1.8.9/src/main/resources/mcmod.info?raw';
 import mixinsJson from '../../forge-1.8.9/src/main/resources/mixins.nexora.json?raw';
 import nexoraClientJava from '../../forge-1.8.9/src/main/java/com/nexora/client/core/NexoraClient.java?raw';
@@ -32,15 +33,15 @@ export const FORGE_PROJECT_FILES: ForgeProjectFile[] = [
   {
     path: '.github/workflows/build.yml',
     language: 'yaml',
-    roleAr: 'سير عمل GitHub Actions لبناء NEXORA-CLIENT-1.0.0-1.8.9.jar عبر Java 8 ورفعه كـ Artifact.',
-    roleEn: 'GitHub Actions CI workflow compiling NEXORA-CLIENT-1.0.0-1.8.9.jar with JDK 8 Temurin & Gradle 7.6.4.',
+    roleAr: 'سير عمل GitHub Actions (JDK 17 لتشغيل Gradle/Loom/Pack200 + JDK 8 Toolchain لترجمة كود المود إلى Java 8 Bytecode).',
+    roleEn: 'GitHub Actions CI workflow provisioning JDK 17 (Gradle/Loom/Pack200 daemon) + JDK 8 Toolchain (Java 8 target bytecode).',
     content: workflowYml,
   },
   {
     path: 'forge-1.8.9/build.gradle',
     language: 'gradle',
-    roleAr: 'إعدادات البناء الحديثة (Essential Loom + SpongePowered Mixin 0.7.11 + Pack200) المتوافقة مع Forge 1.8.9.',
-    roleEn: 'Modern Essential Loom + SpongePowered Mixin 0.7.11 build script for Forge 11.15.1.2318.',
+    roleAr: 'إعدادات البناء (Essential Loom 0.10.0.5 + Architectury Pack200 0.1.3 + Mixin 0.7.11 + Java 8 Toolchain).',
+    roleEn: 'Essential Loom 0.10.0.5 + Architectury Pack200 0.1.3 + SpongePowered Mixin 0.7.11 build script with Java 8 Toolchain.',
     content: buildGradle,
   },
   {
@@ -53,9 +54,16 @@ export const FORGE_PROJECT_FILES: ForgeProjectFile[] = [
   {
     path: 'forge-1.8.9/gradle.properties',
     language: 'properties',
-    roleAr: 'خصائص إصدار المود وذاكرة JVM وإصدار Forge 11.15.1.2318.',
-    roleEn: 'Project properties defining Minecraft 1.8.9, Forge 11.15.1.2318, and Mixin 0.7.11.',
+    roleAr: 'خصائص إصدار المود وذاكرة JVM واكتشاف مسارات JDK 8 و JDK 17 تلقائياً.',
+    roleEn: 'Project properties defining Minecraft 1.8.9, Forge 11.15.1.2318, Mixin 0.7.11, and JDK toolchain env discovery.',
     content: gradleProperties,
+  },
+  {
+    path: 'forge-1.8.9/gradle/wrapper/gradle-wrapper.properties',
+    language: 'properties',
+    roleAr: 'إعدادات Gradle Wrapper الرسمية المثبتة على الإصدار 7.6.4 المتوافق مع Essential Loom.',
+    roleEn: 'Gradle Wrapper configuration pinned to Gradle 7.6.4.',
+    content: gradleWrapperProperties,
   },
   {
     path: 'forge-1.8.9/src/main/resources/mcmod.info',

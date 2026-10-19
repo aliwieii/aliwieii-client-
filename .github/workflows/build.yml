@@ -16,11 +16,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 8 (Temurin)
+      - name: Set up JDK 8 (Target Toolchain for Minecraft 1.8.9 & PojavLauncher) & JDK 17 (Gradle Daemon & Loom)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8'
+          java-version: |
+            8
+            17
           cache: 'gradle'
 
       - name: Setup Gradle
@@ -32,11 +34,13 @@ jobs:
         working-directory: ./forge-1.8.9
         run: gradle clean build --no-daemon --stacktrace
 
-      - name: Verify Output JAR Exists
+      - name: Verify Output JAR, Manifest, Mixin Refmap & Java 8 Bytecode (Major 52)
         working-directory: ./forge-1.8.9
         run: |
           ls -lh build/libs/
           test -f build/libs/NEXORA-CLIENT-1.0.0-1.8.9.jar
+          jar tf build/libs/NEXORA-CLIENT-1.0.0-1.8.9.jar | grep -E "NexoraClient.class|mcmod.info|mixins.nexora.json|mixins.nexora.refmap.json"
+          javap -v -cp build/libs/NEXORA-CLIENT-1.0.0-1.8.9.jar com.nexora.client.core.NexoraClient | grep -E "major version|minor version"
 
       - name: Upload NEXORA-CLIENT-1.0.0-1.8.9.jar Artifact
         uses: actions/upload-artifact@v4

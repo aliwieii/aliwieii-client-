@@ -29,6 +29,7 @@ import java.util.Map;
  */
 public final class ModuleManager {
 
+    private final Minecraft mc = Minecraft.getMinecraft();
     private final Map<String, Module> modules = new LinkedHashMap<String, Module>();
     private final List<HudModule> hudModules = new ArrayList<HudModule>();
 

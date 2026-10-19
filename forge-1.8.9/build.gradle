@@ -55,7 +55,6 @@ dependencies {
     embed("org.spongepowered:mixin:0.7.11-SNAPSHOT") {
         transitive = false
     }
-    annotationProcessor("org.spongepowered:mixin:0.7.11-SNAPSHOT")
 }
 
 processResources {
@@ -86,7 +85,7 @@ shadowJar {
     archiveVersion.set("${project.mod_version}-${project.mc_version}")
     archiveClassifier.set("all-dev")
     configurations = [project.configurations.embed]
-    DuplicatesStrategy.EXCLUDE
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     exclude "META-INF/MUMFREY*"
     exclude "LICENSE.txt"
