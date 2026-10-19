@@ -3,14 +3,8 @@ name: Build NEXORA CLIENT (Forge 1.8.9)
 on:
   push:
     branches: [ "main", "master", "develop" ]
-    paths:
-      - 'forge-1.8.9/**'
-      - '.github/workflows/build.yml'
   pull_request:
     branches: [ "main", "master" ]
-    paths:
-      - 'forge-1.8.9/**'
-      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 jobs:
@@ -25,18 +19,28 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 8
+      - name: Set up JDK 8 (Target Toolchain) & JDK 17 (Gradle/Loom Daemon)
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '8'
+          java-version: |
+            17
+            8
           cache: 'gradle'
 
       - name: Grant Execute Permission for Gradlew
         run: chmod +x ./gradlew
 
       - name: Build Forge 1.8.9 Mod (Skip Web Frontend)
-        run: ./gradlew clean build --no-daemon --stacktrace
+        run: |
+          rm -rf .gradle build
+          ./gradlew clean build --no-daemon --stacktrace
+
+      - name: Verify Output JAR & Java 8 Bytecode (Major 52)
+        run: |
+          ls -lh build/libs/
+          test -f build/libs/NEXORA-CLIENT-1.0.0-1.8.9.jar
+          javap -v -cp build/libs/NEXORA-CLIENT-1.0.0-1.8.9.jar com.nexora.client.core.NexoraClient | grep -E "major version|minor version"
 
       - name: Upload NEXORA-CLIENT JAR Artifact
         if: success()
