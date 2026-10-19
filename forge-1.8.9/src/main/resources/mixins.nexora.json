@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.7.11",
+  "package": "com.nexora.client.mixin",
+  "refmap": "mixins.nexora.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "MixinEntityRenderer",
+    "MixinGuiIngame",
+    "MixinRendererLivingEntity"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

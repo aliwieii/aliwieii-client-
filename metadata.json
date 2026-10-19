@@ -1,0 +1,6 @@
+{
+  "name": "NEXORA CLIENT — Forge 1.8.9 PvP Suite",
+  "description": "Professional Minecraft 1.8.9 Forge PvP Client & Interactive HUD Studio optimized for PojavLauncher (Android / GL4ES) with full Arabic RTL & English support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

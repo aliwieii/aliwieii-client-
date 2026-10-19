@@ -1,0 +1,16 @@
+[
+  {
+    "modid": "nexora",
+    "name": "NEXORA CLIENT",
+    "description": "Professional Minecraft 1.8.9 PvP Client & HUD Suite optimized for PojavLauncher (Android / GL4ES / Adreno 710) with native Arabic RTL & English support.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "https://github.com/nexora-client/nexora",
+    "updateUrl": "",
+    "authorList": ["NEXORA Engineering Team"],
+    "credits": "Designed for Minecraft 1.8.9 Forge 11.15.1.2318 & PojavLauncher",
+    "logoFile": "assets/nexora/textures/gui/logo.png",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
