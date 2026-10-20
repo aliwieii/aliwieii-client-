@@ -30,6 +30,13 @@ public final class GL4ESRenderUtils {
     private GL4ESRenderUtils() {
     }
 
+    public static float lerp(float current, float target, float factor) {
+        if (Math.abs(target - current) < 0.001f) {
+            return target;
+        }
+        return current + (target - current) * Math.max(0.0f, Math.min(1.0f, factor));
+    }
+
     public static void resetGlState() {
         GlStateManager.enableTexture2D();
         GlStateManager.enableAlpha();
@@ -183,6 +190,51 @@ public final class GL4ESRenderUtils {
         tessellator.draw();
         GL11.glLineWidth(1.0F);
         GlStateManager.enableCull();
+        GlStateManager.enableTexture2D();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.popMatrix();
+    }
+
+    /**
+     * Draws a modern pill-style toggle switch with a sliding knob (GL4ES safe).
+     */
+    public static void drawToggleSwitch(float x, float y, float width, float height, boolean enabled, int accentColor) {
+        float radius = height / 2.0f;
+        int trackColor = enabled ? accentColor : 0xFF21262D;
+        int borderColor = enabled ? 0x66FFFFFF : 0x338B949E;
+        drawBorderedRoundedRect(x, y, width, height, radius, 1.0f, trackColor, borderColor);
+
+        float knobSize = height - 4.0f;
+        float knobX = enabled ? (x + width - knobSize - 2.0f) : (x + 2.0f);
+        float knobY = y + 2.0f;
+        int knobColor = enabled ? 0xFF0B0E14 : 0xFFE6EDF3;
+        drawRoundedRect(knobX, knobY, knobSize, knobSize, knobSize / 2.0f, knobColor);
+    }
+
+    /**
+     * Draws a 2D line segment using GL_LINES (for crosshair hit markers & indicators).
+     */
+    public static void drawLine(float x1, float y1, float x2, float y2, float lineWidth, int color) {
+        float a = (float) (color >> 24 & 255) / 255.0F;
+        float r = (float) (color >> 16 & 255) / 255.0F;
+        float g = (float) (color >> 8 & 255) / 255.0F;
+        float b = (float) (color & 255) / 255.0F;
+
+        GlStateManager.pushMatrix();
+        GlStateManager.enableBlend();
+        GlStateManager.disableTexture2D();
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+        GlStateManager.color(r, g, b, a);
+        GL11.glLineWidth(Math.max(1.0f, lineWidth));
+
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer wr = tessellator.getWorldRenderer();
+        wr.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION);
+        wr.pos(x1, y1, 0.0D).endVertex();
+        wr.pos(x2, y2, 0.0D).endVertex();
+        tessellator.draw();
+
+        GL11.glLineWidth(1.0F);
         GlStateManager.enableTexture2D();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.popMatrix();

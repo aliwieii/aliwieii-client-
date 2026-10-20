@@ -1800,6 +1800,88 @@ export const EXTERNAL_MODS_MATRIX: ExternalModSpec[] = [
   },
 ];
 
+export interface ReferenceAuditEntry {
+  id: string;
+  classGroup: string;
+  decision: 'ADOPTED_CLEAN' | 'ADAPTED_GL4ES' | 'REJECTED_UNSAFE';
+  nexoraEquivalent: string;
+  reasonAr: string;
+  reasonEn: string;
+}
+
+export const HITDELAYFIX_REFERENCE_AUDIT: ReferenceAuditEntry[] = [
+  {
+    id: 'hitdelayfix_core',
+    classGroup: 'HitDelayFixHandler / NoMissClickHandler',
+    decision: 'ADOPTED_CLEAN',
+    nexoraEquivalent: 'MixinMinecraft.java + Module("hit_delay_fix")',
+    reasonAr:
+      'يعالج خلل تأخير الضرب الشهير في 1.8.9 (leftClickCounter = 10 بعد التلويح بالخطأ). تم تنفيذه برمجياً بشكل نظيف ومستقل عبر MixinMinecraft في بداية clickMouse.',
+    reasonEn:
+      'Fixes the vanilla 1.8.9 10-tick leftClickCounter miss penalty. Cleanly implemented in NEXORA via MixinMinecraft at the head of clickMouse().',
+  },
+  {
+    id: 'uimod_toast_sound',
+    classGroup: 'ToastHudOverlay / ToastNotification / SoundUtil',
+    decision: 'ADOPTED_CLEAN',
+    nexoraEquivalent: 'ModuleManager.renderActiveToast() + playUiClickSound()',
+    reasonAr:
+      'إشعارات منبثقة أنيقة وصوت نقر واجهة خفيف عند تفعيل الميزات أو تبديل البروفايل دون تخصيص كائنات في حلقة الرسم.',
+    reasonEn:
+      'Clean corner toast notifications and vanilla button audio feedback when toggling modules or switching profiles with zero render-loop allocation.',
+  },
+  {
+    id: 'uimod_theme_widgets',
+    classGroup: 'ThemeManager / ToggleWidget / SearchEntry / AnimatedValue',
+    decision: 'ADOPTED_CLEAN',
+    nexoraEquivalent: 'GuiNexoraMain v2 + GL4ESRenderUtils.drawToggleSwitch() + lerp()',
+    reasonAr:
+      'تم دمج البحث الفوري داخل الواجهة، وفلاتر الحالة، ومفاتيح التبديل المنزلقة الحديثة، واختيار ألوان السمة في GuiNexoraMain.',
+    reasonEn:
+      'Integrated live search box, quick status filter, modern pill toggle switches, lerp scrolling, and selectable theme accents in GuiNexoraMain.',
+  },
+  {
+    id: 'memory_corpse_clear',
+    classGroup: 'MemoryWatchdogHandler / CorpseClearHandler',
+    decision: 'ADOPTED_CLEAN',
+    nexoraEquivalent: 'Module("memory_watchdog") in ModuleManager.onClientTick()',
+    reasonAr:
+      'ينظف الكيانات الميتة العالقة (deathTime >= 19) محلياً لمنع هبوط الإطارات على الهواتف دون استدعاء System.gc() المسبب للتقطيع.',
+    reasonEn:
+      'Removes lingering client-side dead entities (deathTime >= 19) safely without triggering frame-stalling System.gc() calls.',
+  },
+  {
+    id: 'shader_blur',
+    classGroup: 'BlurHelper / hitdelayfix_blur.fsh (#version 120 Gaussian Loop)',
+    decision: 'ADAPTED_GL4ES',
+    nexoraEquivalent: 'GL4ESRenderUtils Translucent Scrims (Zero-Shader Safe Mode)',
+    reasonAr:
+      'شيدر التمويه ثنائي التمرير يسبب شاشة سوداء أو هبوط حاد في الإطارات على مترجم GL4ES في PojavLauncher؛ تم استبداله بخلفيات شفافة متوافقة 100% مع Adreno.',
+    reasonEn:
+      'Two-pass framebuffer blur shaders cause black screens or severe frame drops on PojavLauncher GL4ES; replaced with GL4ES-safe translucent vertex panels.',
+  },
+  {
+    id: 'evasion_os_native',
+    classGroup: 'JarHider / WindowsAPI / TimerResolutionHandler',
+    decision: 'REJECTED_UNSAFE',
+    nexoraEquivalent: 'None (Strictly Excluded)',
+    reasonAr:
+      'أدوات إخفاء ملفات ومكتبات خاصة بنظام Windows فقط؛ غير متوافقة مع Android/PojavLauncher وتنتهك معايير الشفافية والأمان.',
+    reasonEn:
+      'Stealth/file-hiding and Windows-only native calls; incompatible with Android/Linux and violate clean client transparency rules.',
+  },
+  {
+    id: 'unfair_combat_automation',
+    classGroup: 'BetterAim / ZeroTickAim / AutoTrack / MicroReach / MicroSpeed / KnockResist / IgnoreServerHitDelay',
+    decision: 'REJECTED_UNSAFE',
+    nexoraEquivalent: 'None (Strictly Excluded — Legitimate PvP Only)',
+    reasonAr:
+      'ميزات غش وتعديل مدى الضرب والتصويب الآلي وتعديل الـ Knockback؛ مرفوضة بالكامل للحفاظ على نزاهة NEXORA وأمان حساب اللاعب على السيرفرات.',
+    reasonEn:
+      'Aim-assist, reach modification, velocity manipulation, and server hit-delay bypasses; strictly rejected to keep NEXORA 100% legitimate and anti-cheat safe.',
+  },
+];
+
 export function filterModules(
   modules: NexoraModule[],
   query: string,

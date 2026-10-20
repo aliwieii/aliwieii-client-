@@ -18,6 +18,7 @@ import configManagerJava from '../../forge-1.8.9/src/main/java/com/nexora/client
 import profileManagerJava from '../../forge-1.8.9/src/main/java/com/nexora/client/profiles/ProfileManager.java?raw';
 import guiNexoraMainJava from '../../forge-1.8.9/src/main/java/com/nexora/client/gui/GuiNexoraMain.java?raw';
 import guiHudEditorJava from '../../forge-1.8.9/src/main/java/com/nexora/client/gui/GuiHudEditor.java?raw';
+import mixinMinecraftJava from '../../forge-1.8.9/src/main/java/com/nexora/client/mixin/MixinMinecraft.java?raw';
 import mixinEntityRendererJava from '../../forge-1.8.9/src/main/java/com/nexora/client/mixin/MixinEntityRenderer.java?raw';
 import mixinGuiIngameJava from '../../forge-1.8.9/src/main/java/com/nexora/client/mixin/MixinGuiIngame.java?raw';
 import mixinRendererLivingJava from '../../forge-1.8.9/src/main/java/com/nexora/client/mixin/MixinRendererLivingEntity.java?raw';
@@ -83,15 +84,15 @@ export const FORGE_PROJECT_FILES: ForgeProjectFile[] = [
   {
     path: 'forge-1.8.9/src/main/resources/mixins.nexora.json',
     language: 'json',
-    roleAr: 'تسجيل كلاسات Mixin 0.7.11 لتعديل EntityRenderer و GuiIngame و RendererLivingEntity.',
+    roleAr: 'تسجيل كلاسات Mixin 0.7.11 لتعديل Minecraft و EntityRenderer و GuiIngame و RendererLivingEntity.',
     roleEn: 'SpongePowered Mixin 0.7.11 configuration targeting 1.8.9 client classes.',
     content: mixinsJson,
   },
   {
     path: 'forge-1.8.9/src/main/java/com/nexora/client/core/NexoraClient.java',
     language: 'java',
-    roleAr: 'نقطة الدخول الرئيسية (@Mod) وإدارة دورة الحياة والاختصارات وحفظ الإعدادات عند الإغلاق.',
-    roleEn: 'Main @Mod entry point managing lifecycle, keybindings (RSHIFT, H), and shutdown persistence.',
+    roleAr: 'نقطة الدخول الرئيسية (@Mod) وإدارة دورة الحياة والاختصارات وإشعارات الـ Toast وحفظ الإعدادات.',
+    roleEn: 'Main @Mod entry point managing lifecycle, keybindings (RSHIFT, H), Toast alerts, and shutdown persistence.',
     content: nexoraClientJava,
   },
   {
@@ -111,15 +112,15 @@ export const FORGE_PROJECT_FILES: ForgeProjectFile[] = [
   {
     path: 'forge-1.8.9/src/main/java/com/nexora/client/utils/GL4ESRenderUtils.java',
     language: 'java',
-    roleAr: 'محرك الرسم المتوافق مع PojavLauncher (GL4ES / Adreno 710) عبر Tessellator و WorldRenderer دون Shaders.',
-    roleEn: 'GL4ES-safe rendering utility using Tessellator, WorldRenderer, and trigonometry lookup tables.',
+    roleAr: 'محرك الرسم المتوافق مع PojavLauncher (GL4ES / Adreno 710) عبر Tessellator و WorldRenderer مع مفاتيح التبديل الحديثة.',
+    roleEn: 'GL4ES-safe rendering utility using Tessellator, WorldRenderer, lerp animations, and modern toggle switches.',
     content: gl4esRenderJava,
   },
   {
     path: 'forge-1.8.9/src/main/java/com/nexora/client/modules/ModuleManager.java',
     language: 'java',
-    roleAr: 'مدير الميزات وعناصر HUD مع مخزن حلقي (Ring Buffer) للـ CPS وتحديثات متباعدة للنصوص.',
-    roleEn: 'Central module & HUD manager with primitive CPS ring buffer and throttled telemetry.',
+    roleAr: 'مدير الـ42 ميزة و20 عنصر HUD مع إصلاح تأخير الضرب 1.8.9 وإشعارات الـ Toast ومراقب الذاكرة.',
+    roleEn: 'Central 42-module & 20-HUD manager with 1.8.9 HitDelayFix, Toast overlay, Hit Markers, and Memory Watchdog.',
     content: moduleManagerJava,
   },
   {
@@ -146,7 +147,7 @@ export const FORGE_PROJECT_FILES: ForgeProjectFile[] = [
   {
     path: 'forge-1.8.9/src/main/java/com/nexora/client/config/ConfigManager.java',
     language: 'java',
-    roleAr: 'نظام حفظ واسترجاع الإعدادات بصيغة JSON خارج خيط الرسم مع معالجة الملفات التالفة.',
+    roleAr: 'نظام حفظ واسترجاع الإعدادات والسمة اللونية بصيغة JSON خارج خيط الرسم (.tmp/.bak).',
     roleEn: 'Schema-versioned JSON configuration manager with async off-thread disk writes and corruption recovery.',
     content: configManagerJava,
   },
@@ -160,16 +161,23 @@ export const FORGE_PROJECT_FILES: ForgeProjectFile[] = [
   {
     path: 'forge-1.8.9/src/main/java/com/nexora/client/gui/GuiNexoraMain.java',
     language: 'java',
-    roleAr: 'الواجهة الرئيسية داخل اللعبة مع الشريط الجانبي ودعم RTL والتمرير السلس.',
-    roleEn: 'In-game main dashboard screen with RTL/LTR sidebar, scissor scrolling, and module cards.',
+    roleAr: 'الواجهة الرئيسية المحدثة مع البحث الحي، وفلاتر الحالة، ومفاتيح التبديل المنزلقة، واختيار ألوان السمة.',
+    roleEn: 'Upgraded in-game dashboard with live search box, quick filters, modern toggle switches, and theme accents.',
     content: guiNexoraMainJava,
   },
   {
     path: 'forge-1.8.9/src/main/java/com/nexora/client/gui/GuiHudEditor.java',
     language: 'java',
-    roleAr: 'شاشة محرر الواجهة (HUD Editor) للسحب والمحاذاة الشبكية والقفل داخل اللعبة.',
-    roleEn: 'Interactive in-game HUD Editor with grid snapping, locking, and reset controls.',
+    roleAr: 'شاشة محرر الواجهة (HUD Editor) للسحب والمحاذاة الشبكية والقفل وشريط التحكم السفلي للمس.',
+    roleEn: 'Interactive in-game HUD Editor with grid snapping, locking, and bottom touch inspector bar.',
     content: guiHudEditorJava,
+  },
+  {
+    path: 'forge-1.8.9/src/main/java/com/nexora/client/mixin/MixinMinecraft.java',
+    language: 'java',
+    roleAr: 'حقن كلاس Minecraft.clickMouse لإزالة عقوبة تأخير الضرب 10 تيك (leftClickCounter = 0) عند التلويح بالخطأ في 1.8.9.',
+    roleEn: 'Mixin into Minecraft.clickMouse resetting leftClickCounter (field_71429_W) to 0 for 1.8.9 HitDelayFix.',
+    content: mixinMinecraftJava,
   },
   {
     path: 'forge-1.8.9/src/main/java/com/nexora/client/mixin/MixinEntityRenderer.java',

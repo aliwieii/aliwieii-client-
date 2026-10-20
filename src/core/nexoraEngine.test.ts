@@ -9,6 +9,7 @@ import {
   autoArrangeHudModules,
   deleteProfileSafely,
   parseAndValidateConfig,
+  HITDELAYFIX_REFERENCE_AUDIT,
 } from './nexoraEngine.ts';
 
 test('createInitialModules initializes all 83 unique NEXORA modules', () => {
@@ -79,4 +80,14 @@ test('parseAndValidateConfig recovers gracefully from corrupted JSON without cra
   assert.equal(result.valid, false);
   assert.equal(result.recoveredFromError, true);
   assert.equal(result.modules.length, 83);
+});
+
+test('HITDELAYFIX_REFERENCE_AUDIT classifies adopted, GL4ES-adapted, and rejected unsafe classes', () => {
+  assert.ok(HITDELAYFIX_REFERENCE_AUDIT.length >= 7);
+  const adopted = HITDELAYFIX_REFERENCE_AUDIT.filter((e) => e.decision === 'ADOPTED_CLEAN');
+  const adapted = HITDELAYFIX_REFERENCE_AUDIT.filter((e) => e.decision === 'ADAPTED_GL4ES');
+  const rejected = HITDELAYFIX_REFERENCE_AUDIT.filter((e) => e.decision === 'REJECTED_UNSAFE');
+  assert.ok(adopted.length >= 4);
+  assert.ok(adapted.length >= 1);
+  assert.ok(rejected.length >= 2);
 });

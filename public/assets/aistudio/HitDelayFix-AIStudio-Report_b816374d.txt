@@ -1,0 +1,348 @@
+HITDELAYFIX 1.1.6 — AI STUDIO REFERENCE REPORT
+
+PURPOSE
+This report was generated from the supplied JAR archive to provide readable reference information where a platform may reject direct .jar uploads. It is not a decompilation of the full Java implementation and does not prove that any feature works.
+
+IMPORTANT INSTRUCTIONS FOR THE AI
+1. Treat this as reference material, not as authorization to copy or redistribute code. Verify the applicable license and permissions before reusing implementation code.
+2. Do not claim to have executed or tested this mod.
+3. Class names and string constants are clues only; inspect actual source/bytecode if tools permit. Do not assume names prove functionality.
+4. Compare ideas against the existing NEXORA CLIENT project before recommending changes; avoid duplicate modules.
+5. Target compatibility: Minecraft Java 1.8.9, Forge 11.15.1.2318, Java 8, PojavLauncher on Android.
+6. Prioritize legitimate client-side UI, HUD, accessibility, and performance features. Do not import hidden automation, evasion, or anti-cheat bypass features.
+7. If more detail is required, request or inspect the actual JAR in an environment that can read ZIP/JAR archives; this report alone is not full source code.
+
+ARCHIVE METADATA
+Manifest-Version: 1.0
+TweakOrder: 0
+ModSide: CLIENT
+FMLCorePluginContainsFMLMod: true
+ForceLoadAsMod: true
+FMLCorePlugin: com.karlio.hitdelayfix.coremod.HitDelayFixPlugin
+
+
+
+MCMOD.INFO
+[
+  {
+    "modid": "hitdelayfix",
+    "name": "HitDelayFix",
+    "description": "Hit delay optimization mod with NoDebounce, BetterAim, BetterHitDetection, HitSelectFix, and FeatherOptimization features.",
+    "version": "1.1.6",
+    "mcversion": "1.8.9",
+    "url": "",
+    "updateUrl": "",
+    "authorList": ["Karlio"],
+    "credits": "",
+    "logoFile": ""
+  }
+]
+
+
+ARCHIVE COUNTS
+Total entries: 196
+Class files: 163
+Non-class files: 8
+
+CLASS FILE INVENTORY
+com/karlio/hitdelayfix/AccountManager.class
+com/karlio/hitdelayfix/AccountOverlayHandler.class
+com/karlio/hitdelayfix/AirHitsHandler.class
+com/karlio/hitdelayfix/AntiDoubleClickHandler.class
+com/karlio/hitdelayfix/AutoTrackHandler.class
+com/karlio/hitdelayfix/BestHitTimingHandler.class
+com/karlio/hitdelayfix/BetterAimHandler.class
+com/karlio/hitdelayfix/BetterHitDetectionHandler.class
+com/karlio/hitdelayfix/BetterStrafingHandler.class
+com/karlio/hitdelayfix/BlockAllHitsHandler.class
+com/karlio/hitdelayfix/BlockDescriptionHandler.class
+com/karlio/hitdelayfix/BlockHitFixHandler.class
+com/karlio/hitdelayfix/BlockHittingHandler.class
+com/karlio/hitdelayfix/BreadcrumbAimHandler.class
+com/karlio/hitdelayfix/BreakBlockTimerHandler.class
+com/karlio/hitdelayfix/BurstClickHandler.class
+com/karlio/hitdelayfix/CacheEngine.class
+com/karlio/hitdelayfix/CacheHandler.class
+com/karlio/hitdelayfix/CameraPlacerHandler$CameraCommand.class
+com/karlio/hitdelayfix/CameraPlacerHandler$CameraEntity.class
+com/karlio/hitdelayfix/CameraPlacerHandler$FrozenMovementInput.class
+com/karlio/hitdelayfix/CameraPlacerHandler.class
+com/karlio/hitdelayfix/ClientProxy.class
+com/karlio/hitdelayfix/ClientReflection.class
+com/karlio/hitdelayfix/ComboDelayFixHandler.class
+com/karlio/hitdelayfix/ComboLockHandler.class
+com/karlio/hitdelayfix/ComboTraceHandler.class
+com/karlio/hitdelayfix/CommonProxy.class
+com/karlio/hitdelayfix/coremod/HitDelayFixPlugin.class
+com/karlio/hitdelayfix/coremod/RenderCullingTransformer$1.class
+com/karlio/hitdelayfix/coremod/RenderCullingTransformer$2.class
+com/karlio/hitdelayfix/coremod/RenderCullingTransformer$3.class
+com/karlio/hitdelayfix/coremod/RenderCullingTransformer$ChatLimitMethodVisitor.class
+com/karlio/hitdelayfix/coremod/RenderCullingTransformer$ChunkCullMethodVisitor.class
+com/karlio/hitdelayfix/coremod/RenderCullingTransformer$EarlyReturnMethodVisitor.class
+com/karlio/hitdelayfix/coremod/RenderCullingTransformer$EntityCullMethodVisitor.class
+com/karlio/hitdelayfix/coremod/RenderCullingTransformer.class
+com/karlio/hitdelayfix/CorpseClearHandler.class
+com/karlio/hitdelayfix/CpsLimitHandler.class
+com/karlio/hitdelayfix/CpsToHitHandler.class
+com/karlio/hitdelayfix/CrouchSyncHandler.class
+com/karlio/hitdelayfix/DiscordLagFixHandler.class
+com/karlio/hitdelayfix/DragClickHandler.class
+com/karlio/hitdelayfix/EdgeAimHandler.class
+com/karlio/hitdelayfix/FallAimHandler.class
+com/karlio/hitdelayfix/FastClickSensitivityHandler.class
+com/karlio/hitdelayfix/FastHitFixHandler.class
+com/karlio/hitdelayfix/FastHitsHandler.class
+com/karlio/hitdelayfix/FastKeySensitivityHandler.class
+com/karlio/hitdelayfix/FastSkinLoadHandler.class
+com/karlio/hitdelayfix/FastStopHitsHandler.class
+com/karlio/hitdelayfix/FeatherOptimizationHandler.class
+com/karlio/hitdelayfix/FinishTargetHandler.class
+com/karlio/hitdelayfix/FirstHitHandler.class
+com/karlio/hitdelayfix/FirstHitPriorityHandler.class
+com/karlio/hitdelayfix/FocusLockHandler.class
+com/karlio/hitdelayfix/FunnyHandler$1.class
+com/karlio/hitdelayfix/FunnyHandler.class
+com/karlio/hitdelayfix/GpuBoostHandler.class
+com/karlio/hitdelayfix/HighKnockBackHandler.class
+com/karlio/hitdelayfix/HitBeforeSwordHandler.class
+com/karlio/hitdelayfix/HitDelayCommand.class
+com/karlio/hitdelayfix/HitDelayFixConfig$CameraData.class
+com/karlio/hitdelayfix/HitDelayFixConfig.class
+com/karlio/hitdelayfix/HitDelayFixHandler.class
+com/karlio/hitdelayfix/HitDelayFixMod.class
+com/karlio/hitdelayfix/HitFPSFixHandler.class
+com/karlio/hitdelayfix/HitSelectFixHandler.class
+com/karlio/hitdelayfix/HitStickHandler.class
+com/karlio/hitdelayfix/IFrameSyncHandler.class
+com/karlio/hitdelayfix/IgnoreServerHitDelayHandler.class
+com/karlio/hitdelayfix/InventoryClickDelayFixHandler.class
+com/karlio/hitdelayfix/JarHider$1.class
+com/karlio/hitdelayfix/JarHider.class
+com/karlio/hitdelayfix/JumpAimHandler.class
+com/karlio/hitdelayfix/KBResetHandler.class
+com/karlio/hitdelayfix/KeyboardDelayFixHandler.class
+com/karlio/hitdelayfix/KnockFollowHandler.class
+com/karlio/hitdelayfix/KnockResistHandler.class
+com/karlio/hitdelayfix/LeadPitchHandler.class
+com/karlio/hitdelayfix/LeadTurnHandler.class
+com/karlio/hitdelayfix/MemoryWatchdogHandler.class
+com/karlio/hitdelayfix/MicroReachHandler.class
+com/karlio/hitdelayfix/MicroSpeedHandler.class
+com/karlio/hitdelayfix/MicroStabilizeHandler.class
+com/karlio/hitdelayfix/ModLanguage$1.class
+com/karlio/hitdelayfix/ModLanguage.class
+com/karlio/hitdelayfix/MouseDelayFixHandler.class
+com/karlio/hitdelayfix/MousePollingRateHandler.class
+com/karlio/hitdelayfix/MovementResetHandler.class
+com/karlio/hitdelayfix/NetworkTweaksHandler.class
+com/karlio/hitdelayfix/NoChatLimitHandler$UnlimitedList.class
+com/karlio/hitdelayfix/NoChatLimitHandler.class
+com/karlio/hitdelayfix/NoClickDebouncer.class
+com/karlio/hitdelayfix/NoClickResetDelayHandler.class
+com/karlio/hitdelayfix/NoComboResetDelayHandler.class
+com/karlio/hitdelayfix/NoHitSyncDelayHandler.class
+com/karlio/hitdelayfix/NoInputLagHandler.class
+com/karlio/hitdelayfix/NoMissClickHandler.class
+com/karlio/hitdelayfix/NoRightClickDelayHandler.class
+com/karlio/hitdelayfix/NoShiftDelayHandler.class
+com/karlio/hitdelayfix/NoSprintResetDelayHandler.class
+com/karlio/hitdelayfix/OnePointSevenHitsHandler.class
+com/karlio/hitdelayfix/OpenConfigGuiHandler.class
+com/karlio/hitdelayfix/PerformanceFixHandler.class
+com/karlio/hitdelayfix/PingHitFixHandler.class
+com/karlio/hitdelayfix/PositionSyncHandler.class
+com/karlio/hitdelayfix/ProjectLHandler.class
+com/karlio/hitdelayfix/ProPlayerHitsHandler.class
+com/karlio/hitdelayfix/ReachDelayFixHandler.class
+com/karlio/hitdelayfix/ResetAimHandler.class
+com/karlio/hitdelayfix/RetargetNearestHandler.class
+com/karlio/hitdelayfix/ShiftTapHandler.class
+com/karlio/hitdelayfix/SimpleConfigScreen.class
+com/karlio/hitdelayfix/SmoothFontChatHandler.class
+com/karlio/hitdelayfix/SnapTapHandler.class
+com/karlio/hitdelayfix/SneakAimHandler.class
+com/karlio/hitdelayfix/SplashScreen$1.class
+com/karlio/hitdelayfix/SplashScreen.class
+com/karlio/hitdelayfix/SprintAimHandler.class
+com/karlio/hitdelayfix/SprintResetHandler.class
+com/karlio/hitdelayfix/STapHandler.class
+com/karlio/hitdelayfix/StrafePredictHandler.class
+com/karlio/hitdelayfix/SuperCalcHitsHandler.class
+com/karlio/hitdelayfix/SuperFastHitResetHandler.class
+com/karlio/hitdelayfix/TapHandler.class
+com/karlio/hitdelayfix/TimerResolutionHandler.class
+com/karlio/hitdelayfix/uimod/animations/AnimatedValue.class
+com/karlio/hitdelayfix/uimod/animations/Animation.class
+com/karlio/hitdelayfix/uimod/animations/Easing.class
+com/karlio/hitdelayfix/uimod/animations/Particle.class
+com/karlio/hitdelayfix/uimod/blur/BlurHelper.class
+com/karlio/hitdelayfix/uimod/blur/ShaderResourcePack.class
+com/karlio/hitdelayfix/uimod/config/ConfigScreen$1.class
+com/karlio/hitdelayfix/uimod/config/ConfigScreen$AdvConfigItem.class
+com/karlio/hitdelayfix/uimod/config/ConfigScreen$SearchEntry.class
+com/karlio/hitdelayfix/uimod/config/ConfigScreen.class
+com/karlio/hitdelayfix/uimod/config/ToastHudOverlay.class
+com/karlio/hitdelayfix/uimod/config/ToastNotification$ToastEntry.class
+com/karlio/hitdelayfix/uimod/config/ToastNotification.class
+com/karlio/hitdelayfix/uimod/font/TTFFontRenderer$1.class
+com/karlio/hitdelayfix/uimod/font/TTFFontRenderer$CharacterData.class
+com/karlio/hitdelayfix/uimod/font/TTFFontRenderer.class
+com/karlio/hitdelayfix/uimod/font/UiFontRegistry.class
+com/karlio/hitdelayfix/uimod/gui/CardPanel.class
+com/karlio/hitdelayfix/uimod/gui/HeaderPanel.class
+com/karlio/hitdelayfix/uimod/gui/SidebarPanel.class
+com/karlio/hitdelayfix/uimod/render/ModernRenderer.class
+com/karlio/hitdelayfix/uimod/render/VectorRenderer.class
+com/karlio/hitdelayfix/uimod/sound/SoundUtil.class
+com/karlio/hitdelayfix/uimod/theme/NeonFontRenderer$1.class
+com/karlio/hitdelayfix/uimod/theme/NeonFontRenderer$CachedGlyph.class
+com/karlio/hitdelayfix/uimod/theme/NeonFontRenderer.class
+com/karlio/hitdelayfix/uimod/theme/ShaderRenderer.class
+com/karlio/hitdelayfix/uimod/theme/ThemeManager.class
+com/karlio/hitdelayfix/uimod/widgets/SliderWidget.class
+com/karlio/hitdelayfix/uimod/widgets/ToggleWidget.class
+com/karlio/hitdelayfix/WATapHandler.class
+com/karlio/hitdelayfix/WHelperHandler.class
+com/karlio/hitdelayfix/WindowsAPI.class
+com/karlio/hitdelayfix/WTapDelayFixHandler.class
+com/karlio/hitdelayfix/WTapHandler.class
+com/karlio/hitdelayfix/ZeroTickAimHandler.class
+
+RESOURCE FILE INVENTORY
+META-INF/MANIFEST.MF
+assets/hitdelayfix/shaders/post/hitdelayfix_blur.json
+assets/hitdelayfix/shaders/program/hitdelayfix_blur.fsh
+assets/hitdelayfix/shaders/program/hitdelayfix_blur.json
+assets/hitdelayfix/shaders/program/hitdelayfix_blur.vsh
+assets/hitdelayfix/textures/gui/fonts/Inter-Regular.ttf
+mcmod.info
+META-INF/net.minecraftforge.fml.relauncher.IFMLLoadingPlugin
+
+EXTRACTED READABLE RESOURCE CONTENTS
+
+
+===== META-INF/MANIFEST.MF =====
+Manifest-Version: 1.0
+TweakOrder: 0
+ModSide: CLIENT
+FMLCorePluginContainsFMLMod: true
+ForceLoadAsMod: true
+FMLCorePlugin: com.karlio.hitdelayfix.coremod.HitDelayFixPlugin
+
+
+
+===== assets/hitdelayfix/shaders/post/hitdelayfix_blur.json =====
+{
+    "targets": [
+        "swap"
+    ],
+    "passes": [
+        {
+            "name": "hitdelayfix_blur",
+            "intarget": "minecraft:main",
+            "outtarget": "swap",
+            "uniforms": [
+                { "name": "BlurDir", "values": [ 1.0, 0.0 ] },
+                { "name": "Radius",  "values": [ 8.0 ] }
+            ]
+        },
+        {
+            "name": "hitdelayfix_blur",
+            "intarget": "swap",
+            "outtarget": "minecraft:main",
+            "uniforms": [
+                { "name": "BlurDir", "values": [ 0.0, 1.0 ] },
+                { "name": "Radius",  "values": [ 8.0 ] }
+            ]
+        }
+    ]
+}
+
+
+===== assets/hitdelayfix/shaders/program/hitdelayfix_blur.fsh =====
+#version 120
+
+uniform sampler2D DiffuseSampler;
+
+varying vec2 texCoord;
+varying vec2 oneTexel;
+
+uniform vec2 InSize;
+uniform vec2 BlurDir;
+uniform float Radius;
+
+void main() {
+    vec4 blurred = vec4(0.0);
+    float totalAlpha = 0.0;
+
+    for (float r = -Radius; r <= Radius; r += 1.0) {
+        vec4 sample = texture2D(DiffuseSampler, texCoord + oneTexel * r * BlurDir);
+        float strength = 1.0 - abs(r / Radius);
+        totalAlpha = totalAlpha + sample.a;
+        blurred = blurred + sample * strength;
+    }
+
+    float samples = Radius * 2.0 + 1.0;
+    gl_FragColor = vec4(blurred.rgb / samples, totalAlpha / samples);
+}
+
+
+===== assets/hitdelayfix/shaders/program/hitdelayfix_blur.json =====
+{
+    "blend": {
+        "func": "add",
+        "srcrgb": "srcalpha",
+        "dstrgb": "1-srcalpha"
+    },
+    "vertex": "hitdelayfix:shaders/program/hitdelayfix_blur.vsh",
+    "fragment": "hitdelayfix:shaders/program/hitdelayfix_blur.fsh",
+    "attributes": [ "Position", "TexCoord" ],
+    "samplers": [
+        { "name": "DiffuseSampler" }
+    ],
+    "uniforms": [
+        { "name": "InSize",       "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "BlurDir",      "type": "float", "count": 2, "values": [ 1.0, 0.0 ] },
+        { "name": "Radius",       "type": "float", "count": 1, "values": [ 4.0 ] }
+    ]
+}
+
+
+===== assets/hitdelayfix/shaders/program/hitdelayfix_blur.vsh =====
+#version 120
+
+attribute vec4 Position;
+attribute vec2 TexCoord;
+
+varying vec2 texCoord;
+varying vec2 oneTexel;
+
+uniform vec2 InSize;
+
+void main() {
+    gl_Position = Position;
+    texCoord = TexCoord;
+    oneTexel = 1.0 / InSize;
+}
+
+
+===== mcmod.info =====
+[
+  {
+    "modid": "hitdelayfix",
+    "name": "HitDelayFix",
+    "description": "Hit delay optimization mod with NoDebounce, BetterAim, BetterHitDetection, HitSelectFix, and FeatherOptimization features.",
+    "version": "1.1.6",
+    "mcversion": "1.8.9",
+    "url": "",
+    "updateUrl": "",
+    "authorList": ["Karlio"],
+    "credits": "",
+    "logoFile": ""
+  }
+]
+
+
+NOTES
+The archive includes compiled Java classes and resources. A list of class names is not equivalent to source code. Features mentioned in the metadata or inferred from class names must be verified before implementation.

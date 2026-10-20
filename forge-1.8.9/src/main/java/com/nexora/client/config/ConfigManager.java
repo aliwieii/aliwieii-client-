@@ -30,7 +30,7 @@ import java.util.concurrent.Executors;
  */
 public final class ConfigManager {
 
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_SCHEMA_VERSION = 3;
     private static final Logger LOGGER = LogManager.getLogger("NEXORA-Config");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -89,6 +89,9 @@ public final class ConfigManager {
             }
             if (root.has("hitOverlayColor")) {
                 moduleManager.setHitOverlayColor(root.get("hitOverlayColor").getAsInt());
+            }
+            if (root.has("clientThemeColor")) {
+                moduleManager.setClientThemeColor(root.get("clientThemeColor").getAsInt());
             }
 
             if (root.has("modules") && root.get("modules").isJsonObject()) {
@@ -215,6 +218,7 @@ public final class ConfigManager {
         root.addProperty("language", I18nManager.getCurrentLanguage().getCode());
         root.addProperty("hurtCamMultiplier", moduleManager.getHurtCamMultiplier());
         root.addProperty("hitOverlayColor", moduleManager.getHitOverlayColor());
+        root.addProperty("clientThemeColor", moduleManager.getClientThemeColor());
 
         JsonObject modsObj = new JsonObject();
         for (Module m : moduleManager.getAllModules()) {

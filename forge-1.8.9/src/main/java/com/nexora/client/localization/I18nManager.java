@@ -52,9 +52,12 @@ public final class I18nManager {
         register("nav.settings", "الإعدادات", "Settings");
         register("nav.about", "حول NEXORA", "About NEXORA");
 
-        register("ui.search_placeholder", "ابحث عن ميزة أو أداة...", "Search modules or features...");
+        register("ui.search_placeholder", "ابحث عن ميزة...", "Search modules...");
         register("ui.enabled", "مفعل", "ON");
         register("ui.disabled", "معطل", "OFF");
+        register("ui.filter_all", "الكل", "All");
+        register("ui.filter_on", "المفعل", "Active");
+        register("ui.filter_hud", "HUD فقط", "HUD");
         register("ui.reset_defaults", "استعادة الافتراضي", "Reset All");
         register("ui.reset_item", "إعادة ضبط العنصر", "Reset Item");
         register("ui.open_hud_editor", "فتح محرر HUD", "Open HUD Editor");

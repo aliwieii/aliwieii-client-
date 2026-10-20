@@ -3,10 +3,12 @@ package com.nexora.client.modules;
 import com.nexora.client.gui.GuiHudEditor;
 import com.nexora.client.hud.HudModule;
 import com.nexora.client.localization.ArabicTextRenderer;
+import com.nexora.client.localization.I18nManager;
 import com.nexora.client.utils.GL4ESRenderUtils;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -30,6 +32,7 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.client.event.DrawBlockHighlightEvent;
 import net.minecraftforge.client.event.EntityViewRenderEvent;
@@ -53,14 +56,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * NEXORA CLIENT — Central Module & HUD Registry.
+ * NEXORA CLIENT — Central Module & HUD Registry (42 Core Modules, 20 HUD Widgets).
  * Implements zero-allocation render loops, 3-layer HUD rendering guarantee for Forge 1.8.9
  * (RenderGameOverlayEvent.Post + MixinGuiIngame + RenderTickEvent safety net),
- * and hardware-friendly telemetry for PojavLauncher (Snapdragon 6 Gen 1 / Adreno 710).
+ * 1.8.9 HitDelayFix integration, In-Game Toast Notifications, and hardware-friendly telemetry
+ * for PojavLauncher (Snapdragon 6 Gen 1 / Adreno 710).
  */
 public final class ModuleManager {
 
     private static final String[] CARDINAL_DIRS = { "S", "SW", "W", "NW", "N", "NE", "E", "SE" };
+    private static final ResourceLocation BUTTON_CLICK_SOUND = new ResourceLocation("gui.button.press");
 
     private final Minecraft mc = Minecraft.getMinecraft();
     private final Map<String, Module> modules = new LinkedHashMap<String, Module>();
@@ -96,6 +101,7 @@ public final class ModuleManager {
     private int maxSessionCombo = 0;
     private int totalSessionHits = 0;
     private int peakSessionCps = 0;
+    private int corpseCleanedCount = 0;
     private final long sessionStartMs = System.currentTimeMillis();
     private long lastHitTimestamp = 0L;
     private float lastReachDistance = 0.0f;
@@ -114,24 +120,35 @@ public final class ModuleManager {
     private String cachedClockText = "12:00:00";
     private String cachedServerText = "Singleplayer";
     private String cachedPackText = "Default 1.8.9";
+    private String cachedResourceText = "Fe: 0 · Au: 0 · Dia: 0 · Em: 0";
     private final SimpleDateFormat clockFormat = new SimpleDateFormat("HH:mm:ss");
 
-    // Movement & Visual state flags read by Mixins & Forge Events
+    // Movement, Camera & Visual state flags read by Mixins & Forge Events
     private boolean sprintToggled = true;
     private boolean sneakToggled = false;
     private boolean freelookActive = false;
+    private boolean snaplookActive = false;
     private boolean zoomActive = false;
     private float freelookYaw = 0.0f;
     private float freelookPitch = 0.0f;
     private int savedThirdPersonView = 0;
+    private int savedSnaplookView = 0;
     private float hurtCamMultiplier = 0.35f;
     private int hitOverlayColor = 0x66FF2A2A;
+    private int clientThemeColor = 0xFF00A8FF;
     private float savedGamma = 1.0f;
     private int savedParticleSetting = 0;
 
+    // Lightweight In-Game Toast Notification State (Zero-Allocation Overlay)
+    private String toastTitle = "";
+    private String toastSubtitle = "";
+    private int toastAccentColor = 0xFF00A8FF;
+    private long toastStartMs = 0L;
+    private long toastExpireMs = 0L;
+
     public void init() {
         // ====================================================================
-        // 1. HUD MODULES (18 Draggable, Resizable, Preview-Ready Widgets)
+        // 1. HUD MODULES (20 Draggable, Resizable, Preview-Ready Widgets)
         // ====================================================================
 
         // 1. FPS & Frame-Time Monitor HUD
@@ -424,11 +441,48 @@ public final class ModuleManager {
             }
         });
 
+        // 19. BedWars Resource Tracker HUD
+        register(new HudModule("resource_tracker", "Resource Tracker", "متتبع موارد BedWars", "Counts Iron, Gold, Diamonds, and Emeralds in inventory", "يعرض عدد الحديد والذهب والألماس والزمرد في مخزونك", true, 178, 126, 148, 22) {
+            @Override
+            protected void renderContent(boolean editMode) {
+                updateThrottledStrings();
+                drawCenteredText(cachedResourceText, getWidth() / 2.0f, 7.0f, 0xFF3FB950);
+            }
+        });
+
+        // 20. Sprint & W-Tap Rhythm HUD
+        register(new HudModule("sprint_status", "Sprint & W-Tap HUD", "حالة الركض وتوقيت W-Tap", "Shows live Sprint/Sneak toggle state and W-Tap reset window", "يعرض حالة تثبيت الركض ونافذة توقيت W-Tap بعد الضربة", true, 178, 152, 132, 22) {
+            @Override
+            protected void renderContent(boolean editMode) {
+                long sinceHit = System.currentTimeMillis() - lastHitTimestamp;
+                String status;
+                int col;
+                if (sinceHit >= 60L && sinceHit <= 260L) {
+                    status = "[W-Tap Window Ready]";
+                    col = 0xFF3FB950;
+                } else if (mc.thePlayer != null && mc.thePlayer.isSneaking()) {
+                    status = sneakToggled ? "[Sneaking (Toggled)]" : "[Sneaking (Held)]";
+                    col = 0xFFD29922;
+                } else if (isModuleEnabled("toggle_sprint") && sprintToggled) {
+                    status = "[Sprinting (Toggled)]";
+                    col = 0xFF00A8FF;
+                } else {
+                    status = "[Walking]";
+                    col = 0xFF8B949E;
+                }
+                drawCenteredText(status, getWidth() / 2.0f, 7.0f, col);
+            }
+        });
+
         // ====================================================================
-        // 2. PVP, VISUALS, INVENTORY & PERFORMANCE MODULES
+        // 2. PVP, VISUALS, INVENTORY & PERFORMANCE MODULES (22 Modules)
         // ====================================================================
 
-        // 19. Toggle Sprint
+        // 21. 1.8.9 Hit Delay Fix (MixinMinecraft leftClickCounter = 0)
+        register(new Module("hit_delay_fix", "1.8.9 Hit Delay Fix", "إصلاح تأخير الضرب 1.8.9", "Removes the vanilla 1.8.9 10-tick attack block after a missed swing via MixinMinecraft", "يزيل عقوبة تأخير الضرب (10 تيك) في 1.8.9 بعد التلويح بالخطأ لضمان تسجيل كل ضربة فوراً", ModuleCategory.PVP, true, 0) {
+        });
+
+        // 22. Toggle Sprint
         register(new Module("toggle_sprint", "Toggle Sprint", "تثبيت الركض التلقائي", "Maintains sprint state automatically when moving forward", "يثبت وضع الركض تلقائياً عند التقدم للأمام", ModuleCategory.PVP, true, Keyboard.KEY_I) {
             @Override
             protected void onEnable() {
@@ -443,7 +497,7 @@ public final class ModuleManager {
             }
         });
 
-        // 20. Toggle Sneak
+        // 23. Toggle Sneak
         register(new Module("toggle_sneak", "Toggle Sneak", "تثبيت التسلل Sneak", "Toggles sneak state safely while in-game (disengaged in GUIs)", "يثبت وضع الانحناء داخل اللعب ويتوقف تلقائياً عند فتح القوائم", ModuleCategory.PVP, false, Keyboard.KEY_V) {
             @Override
             protected void onEnable() {
@@ -461,7 +515,7 @@ public final class ModuleManager {
             }
         });
 
-        // 21. Freelook 360 (CameraSetup Hook)
+        // 24. Freelook 360 (CameraSetup Hook)
         register(new Module("freelook", "Freelook 360", "منظور الكاميرا الحر", "Hold Left Alt (LMENU) to rotate camera 360 degrees without changing movement direction", "اضغط باستمرار على Left Alt لتحريك الكاميرا 360 درجة دون تغيير اتجاه الحركة", ModuleCategory.PVP, true, Keyboard.KEY_LMENU) {
             @Override
             protected void onDisable() {
@@ -473,27 +527,43 @@ public final class ModuleManager {
             }
         });
 
-        // 22. Smooth Zoom (FOVModifier Hook)
+        // 25. Smooth Zoom (FOVModifier Hook)
         register(new Module("zoom", "Smooth Zoom", "التقريب البصري السلس Zoom", "Hold C key in-game for 4x optical zoom with smooth camera", "اضغط باستمرار على حرف C للتقريب البصري 4x مع تنعيم حركة الكاميرا", ModuleCategory.PVP, true, Keyboard.KEY_C) {
         });
 
-        // 23. Dynamic FOV Controller
+        // 26. Snaplook Rear View
+        register(new Module("snaplook", "Snaplook Rear View", "نظرة خلفية سريعة Snaplook", "Hold F key for instant rear third-person camera check", "اضغط باستمرار على حرف F لإلقاء نظرة خلفية فورية", ModuleCategory.PVP, true, Keyboard.KEY_F) {
+            @Override
+            protected void onDisable() {
+                super.onDisable();
+                if (snaplookActive && mc.gameSettings != null) {
+                    snaplookActive = false;
+                    mc.gameSettings.thirdPersonView = savedSnaplookView;
+                }
+            }
+        });
+
+        // 27. Dynamic FOV Controller
         register(new Module("fov_mod", "Static PvP FOV", "تثبيت زاوية الرؤية FOV", "Prevents Speed potions and sprinting from warping your aim FOV", "يمنع تغير زاوية الرؤية أثناء الركض أو تأثيرات السرعة لثبات التصويب", ModuleCategory.PVP, false, 0) {
         });
 
-        // 24. Custom PvP Crosshair
+        // 28. Custom PvP Crosshair
         register(new Module("crosshair", "Custom Crosshair", "مؤشر التصويب الاحترافي", "Replaces vanilla crosshair with a crisp GL4ES-safe dot & gap reticle that turns red on targets", "يستبدل علامة التصويب بمؤشر قتالي دقيق يتغير لونه عند التصويب على الخصم", ModuleCategory.PVP, true, 0) {
         });
 
-        // 25. HurtCam Control (MixinEntityRenderer)
+        // 29. Crosshair Hit Markers
+        register(new Module("hit_markers", "Hit Markers", "علامة الإصابة Hit Markers", "Flashes diagonal hit-confirmation ticks around crosshair for 250ms on melee hit", "يرسم علامة إصابة قطرية حول مؤشر التصويب فور تسجيل الضربة على الخصم", ModuleCategory.VISUALS, true, 0) {
+        });
+
+        // 30. HurtCam Control (MixinEntityRenderer)
         register(new Module("hurtcam", "HurtCam Control", "تقليل اهتزاز الضرر", "Reduces screen tilt intensity (35% default) when taking damage", "يقلل اهتزاز الشاشة عند تلقي الضرر لتحسين ثبات التصويب", ModuleCategory.VISUALS, true, 0) {
         });
 
-        // 26. Hit Color Customizer (MixinRendererLivingEntity)
+        // 31. Hit Color Customizer (MixinRendererLivingEntity)
         register(new Module("hitcolor", "Hit Color", "تخصيص لون الإصابة", "Customizes entity damage overlay tint color", "يغير لون الخصم بصرياً عند تسجيل الإصابة", ModuleCategory.VISUALS, true, 0) {
         });
 
-        // 27. Fullbright Gamma Override
+        // 32. Fullbright Gamma Override
         register(new Module("fullbright", "Fullbright", "إضاءة كاملة Fullbright", "Boosts gamma locally to 16.0 for full visibility in dark maps and caves", "يرفع مستوى الإضاءة محلياً لرؤية واضحة تماماً في الأماكن المظلمة", ModuleCategory.VISUALS, true, Keyboard.KEY_G) {
             @Override
             protected void onEnable() {
@@ -515,31 +585,43 @@ public final class ModuleManager {
             }
         });
 
-        // 28. Custom Block Outline (DrawBlockHighlightEvent)
+        // 33. Custom Block Outline (DrawBlockHighlightEvent)
         register(new Module("block_outline", "Block Outline", "تحديد المكعبات المضيء", "Highlights targeted blocks with an Electric Blue bounding box", "يرسم إطاراً أزرق واضحاً حول المكعب الذي تصوب نحوه", ModuleCategory.VISUALS, true, 0) {
         });
 
-        // 29. Weather Changer (Clear Rain/Thunder)
+        // 34. Weather Changer (Clear Rain/Thunder)
         register(new Module("weather_changer", "Clear Weather", "طقس صافي (إزالة المطر)", "Clears client-side rain and thunder particles to prevent mobile GPU drops", "يزيل المطر والبرق محلياً لمنع هبوط الإطارات على الهواتف", ModuleCategory.VISUALS, true, 0) {
         });
 
-        // 30. Time Changer (Daylight Override)
+        // 35. Time Changer (Daylight Override)
         register(new Module("time_changer", "Daylight Time", "تثبيت وقت النهار", "Forces clean daytime sky lighting locally during matches", "يثبت إضاءة النهار الصافية محلياً لوضوح الرؤية", ModuleCategory.VISUALS, false, 0) {
         });
 
-        // 31. Nick Hider
+        // 36. Low Health Warning Alert
+        register(new Module("low_health_warning", "Low Health Alert", "تنبيه انخفاض الصحة", "Renders a pulsing crimson edge alert when health drops below 3.5 hearts", "يظهر إطاراً تحذيرياً أحمر عند انخفاض صحتك لأقل من 3.5 قلوب", ModuleCategory.VISUALS, true, 0) {
+        });
+
+        // 37. Nick Hider
         register(new Module("nick_hider", "Nick Hider", "إخفاء الاسم وعنوان السيرفر", "Masks server IP and personal nickname on HUD for safe recording", "يخفي عنوان السيرفر والاسم الشخصي أثناء التصوير أو البث", ModuleCategory.VISUALS, false, 0) {
         });
 
-        // 32. Inventory PvP Summary Helper
+        // 38. Inventory PvP Summary Helper
         register(new Module("inventory_helper", "Inventory Helper", "مساعد المخزون القتالي", "Displays total splash potions, golden apples, arrows, and blocks at the top of inventory screens", "يعرض ملخصاً فورياً لعدد الجرعات والتفاح الذهبي والسهام والبلوكات أعلى شاشة المخزون", ModuleCategory.INVENTORY, true, 0) {
         });
 
-        // 33. Auto GG
+        // 39. Auto GG
         register(new Module("auto_gg", "Auto GG", "رسالة GG التلقائية", "Automatically sends gg in chat when a match ends (with 5s anti-spam cooldown)", "يرسل كلمة gg تلقائياً عند انتهاء المباراة مع حماية من التكرار", ModuleCategory.INVENTORY, false, 0) {
         });
 
-        // 34. GL4ES Frame Pacer & Particle Optimizer
+        // 40. In-Game Toast Notifications & UI Audio
+        register(new Module("toast_notifications", "Toast Alerts & UI Sound", "إشعارات الواجهة والأصوات", "Shows animated corner toast notifications and plays click audio when toggling modules", "يعرض إشعارات منبثقة أنيقة مع صوت نقر خفيف عند تفعيل أو تعطيل الميزات", ModuleCategory.VISUALS, true, 0) {
+        });
+
+        // 41. Memory Watchdog & Corpse Clear
+        register(new Module("memory_watchdog", "Memory Watchdog & Corpse Clear", "حارس الذاكرة وتنظيف الجثث", "Cleans lingering dead entities (deathTime >= 19) to prevent entity lag spikes", "يزيل الكيانات الميتة العالقة محلياً لمنع تقطيع الإطارات واستهلاك الذاكرة", ModuleCategory.PERFORMANCE, true, 0) {
+        });
+
+        // 42. GL4ES Frame Pacer & Particle Optimizer
         register(new Module("gl4es_optimizer", "GL4ES Frame Pacer", "محسن أداء GL4ES للهواتف", "Throttles HUD string allocations to 5Hz and reduces particle load when FPS drops below 45", "يقلل تخصيص النصوص إلى 5 مرات بالثانية ويخفف الجزيئات تلقائياً عند انخفاض الإطارات على Adreno 710", ModuleCategory.PERFORMANCE, true, 0) {
             @Override
             protected void onEnable() {
@@ -564,6 +646,45 @@ public final class ModuleManager {
         if (module instanceof HudModule) {
             hudModules.add((HudModule) module);
         }
+    }
+
+    // ========================================================================
+    // UI AUDIO & TOAST NOTIFICATION ENGINE
+    // ========================================================================
+
+    public void playUiClickSound() {
+        if (!isModuleEnabled("toast_notifications")) {
+            return;
+        }
+        try {
+            if (mc.getSoundHandler() != null) {
+                mc.getSoundHandler().playSound(PositionedSoundRecord.create(BUTTON_CLICK_SOUND, 1.0F));
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    public void pushToast(String title, String subtitle, int accentColor) {
+        if (!isModuleEnabled("toast_notifications")) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        this.toastTitle = title != null ? title : "NEXORA";
+        this.toastSubtitle = subtitle != null ? subtitle : "";
+        this.toastAccentColor = accentColor;
+        this.toastStartMs = now;
+        this.toastExpireMs = now + 2200L;
+    }
+
+    public void pushModuleToggleToast(Module m) {
+        if (m == null) {
+            return;
+        }
+        boolean rtl = I18nManager.isRtl();
+        String name = rtl ? m.getNameAr() : m.getNameEn();
+        String state = m.isEnabled() ? (rtl ? "تم التفعيل (ON)" : "Enabled (ON)") : (rtl ? "تم التعطيل (OFF)" : "Disabled (OFF)");
+        int col = m.isEnabled() ? 0xFF3FB950 : 0xFFF85149;
+        pushToast(name, state, col);
     }
 
     // ========================================================================
@@ -641,9 +762,20 @@ public final class ModuleManager {
         }
         GlStateManager.pushMatrix();
         try {
+            // 1. Low Health Warning Edge Alert (if player HP <= 7.0)
+            if (!editMode && isModuleEnabled("low_health_warning") && mc.thePlayer != null && mc.thePlayer.getHealth() <= 7.0f && mc.thePlayer.getHealth() > 0.0f) {
+                renderLowHealthOverlay(sr);
+            }
+
+            // 2. Render all Draggable HUD Widgets
             for (int i = 0, size = hudModules.size(); i < size; i++) {
                 HudModule hud = hudModules.get(i);
                 hud.renderHud(sr, editMode);
+            }
+
+            // 3. Render Animated In-Game Toast Notification
+            if (!editMode && isModuleEnabled("toast_notifications")) {
+                renderActiveToast(sr);
             }
         } finally {
             GL4ESRenderUtils.resetGlState();
@@ -654,8 +786,44 @@ public final class ModuleManager {
         }
     }
 
+    private void renderLowHealthOverlay(ScaledResolution sr) {
+        int sw = sr.getScaledWidth();
+        int sh = sr.getScaledHeight();
+        float pulse = (float) (0.35 + 0.25 * Math.sin(System.currentTimeMillis() / 180.0));
+        int alpha = Math.min(140, Math.max(30, (int) (pulse * 160.0f)));
+        int col = (alpha << 24) | 0x00F85149;
+        GL4ESRenderUtils.drawRect(0, 0, sw, 4, col);
+        GL4ESRenderUtils.drawRect(0, sh - 4, sw, sh, col);
+        GL4ESRenderUtils.drawRect(0, 4, 4, sh - 4, col);
+        GL4ESRenderUtils.drawRect(sw - 4, 4, sw, sh - 4, col);
+    }
+
+    private void renderActiveToast(ScaledResolution sr) {
+        long now = System.currentTimeMillis();
+        if (now >= toastExpireMs || toastTitle.isEmpty()) {
+            return;
+        }
+        float w = 136.0f;
+        float h = 30.0f;
+        float elapsed = (float) (now - toastStartMs);
+        float rem = (float) (toastExpireMs - now);
+        float slideFactor = 1.0f;
+        if (elapsed < 180.0f) {
+            slideFactor = elapsed / 180.0f;
+        } else if (rem < 220.0f) {
+            slideFactor = rem / 220.0f;
+        }
+        float tx = sr.getScaledWidth() - (w + 8.0f) * slideFactor;
+        float ty = sr.getScaledHeight() - h - 10.0f;
+
+        GL4ESRenderUtils.drawBorderedRoundedRect(tx, ty, w, h, 5.0f, 1.2f, 0xEC111621, toastAccentColor);
+        GL4ESRenderUtils.drawRoundedRect(tx + 4.0f, ty + 5.0f, 3.0f, h - 10.0f, 1.5f, toastAccentColor);
+        ArabicTextRenderer.drawString(toastTitle, tx + 11.0f, ty + 5.0f, 0xFFE6EDF3, true);
+        ArabicTextRenderer.drawString(toastSubtitle, tx + 11.0f, ty + 17.0f, toastAccentColor, false);
+    }
+
     // ========================================================================
-    // CUSTOM CROSSHAIR, BLOCK OUTLINE, FREELOOK, ZOOM & INVENTORY HELPER HOOKS
+    // CUSTOM CROSSHAIR, HIT MARKERS, BLOCK OUTLINE, FREELOOK, SNAPLOOK & ZOOM
     // ========================================================================
 
     @SubscribeEvent
@@ -663,28 +831,42 @@ public final class ModuleManager {
         if (event.type != RenderGameOverlayEvent.ElementType.CROSSHAIRS) {
             return;
         }
-        if (!isModuleEnabled("crosshair") || mc.gameSettings.thirdPersonView != 0) {
+        boolean customCrosshair = isModuleEnabled("crosshair") && mc.gameSettings.thirdPersonView == 0;
+        boolean showHitMarker = isModuleEnabled("hit_markers") && (System.currentTimeMillis() - lastHitTimestamp <= 250L);
+
+        if (!customCrosshair && !showHitMarker) {
             return;
         }
-        event.setCanceled(true);
+
         ScaledResolution sr = event.resolution != null ? event.resolution : new ScaledResolution(mc);
         float cx = sr.getScaledWidth() / 2.0f;
         float cy = sr.getScaledHeight() / 2.0f;
 
-        boolean aimingAtEntity = mc.objectMouseOver != null
-            && mc.objectMouseOver.entityHit instanceof EntityLivingBase;
-        int color = aimingAtEntity ? 0xFFFF3B30 : 0xFF00A8FF;
-        float gap = aimingAtEntity ? 2.5f : 3.5f;
-        float len = 4.0f;
-        float thick = 1.0f;
+        if (customCrosshair) {
+            event.setCanceled(true);
+            boolean aimingAtEntity = mc.objectMouseOver != null
+                && mc.objectMouseOver.entityHit instanceof EntityLivingBase;
+            int color = aimingAtEntity ? 0xFFFF3B30 : clientThemeColor;
+            float gap = aimingAtEntity ? 2.5f : 3.5f;
+            float len = 4.0f;
+            float thick = 1.0f;
 
-        // Center dot
-        GL4ESRenderUtils.drawRect(cx - 0.75f, cy - 0.75f, cx + 0.75f, cy + 0.75f, 0xFFFFFFFF);
-        // Top, Bottom, Left, Right arms
-        GL4ESRenderUtils.drawRect(cx - thick / 2.0f, cy - gap - len, cx + thick / 2.0f, cy - gap, color);
-        GL4ESRenderUtils.drawRect(cx - thick / 2.0f, cy + gap, cx + thick / 2.0f, cy + gap + len, color);
-        GL4ESRenderUtils.drawRect(cx - gap - len, cy - thick / 2.0f, cx - gap, cy + thick / 2.0f, color);
-        GL4ESRenderUtils.drawRect(cx + gap, cy - thick / 2.0f, cx + gap + len, cy + thick / 2.0f, color);
+            // Center dot
+            GL4ESRenderUtils.drawRect(cx - 0.75f, cy - 0.75f, cx + 0.75f, cy + 0.75f, 0xFFFFFFFF);
+            // Top, Bottom, Left, Right arms
+            GL4ESRenderUtils.drawRect(cx - thick / 2.0f, cy - gap - len, cx + thick / 2.0f, cy - gap, color);
+            GL4ESRenderUtils.drawRect(cx - thick / 2.0f, cy + gap, cx + thick / 2.0f, cy + gap + len, color);
+            GL4ESRenderUtils.drawRect(cx - gap - len, cy - thick / 2.0f, cx - gap, cy + thick / 2.0f, color);
+            GL4ESRenderUtils.drawRect(cx + gap, cy - thick / 2.0f, cx + gap + len, cy + thick / 2.0f, color);
+        }
+
+        if (showHitMarker) {
+            int hmColor = 0xFFFF3B30;
+            GL4ESRenderUtils.drawLine(cx - 6.0f, cy - 6.0f, cx - 2.5f, cy - 2.5f, 1.5f, hmColor);
+            GL4ESRenderUtils.drawLine(cx + 2.5f, cy - 2.5f, cx + 6.0f, cy - 6.0f, 1.5f, hmColor);
+            GL4ESRenderUtils.drawLine(cx - 6.0f, cy + 6.0f, cx - 2.5f, cy + 2.5f, 1.5f, hmColor);
+            GL4ESRenderUtils.drawLine(cx + 2.5f, cy + 2.5f, cx + 6.0f, cy + 6.0f, 1.5f, hmColor);
+        }
 
         if (mc.getTextureManager() != null) {
             mc.getTextureManager().bindTexture(Gui.icons);
@@ -717,9 +899,13 @@ public final class ModuleManager {
             .expand(0.0020000000949949026D, 0.0020000000949949026D, 0.0020000000949949026D)
             .offset(-interpX, -interpY, -interpZ);
 
+        float r = (float) (clientThemeColor >> 16 & 255) / 255.0F;
+        float g = (float) (clientThemeColor >> 8 & 255) / 255.0F;
+        float b = (float) (clientThemeColor & 255) / 255.0F;
+
         GlStateManager.enableBlend();
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
-        GlStateManager.color(0.0F, 0.66F, 1.0F, 0.85F);
+        GlStateManager.color(r, g, b, 0.85F);
         GL11.glLineWidth(2.0F);
         GlStateManager.disableTexture2D();
         GlStateManager.depthMask(false);
@@ -734,13 +920,37 @@ public final class ModuleManager {
 
     @SubscribeEvent
     public void onCameraSetup(EntityViewRenderEvent.CameraSetup event) {
+        if (mc.thePlayer == null || mc.gameSettings == null) {
+            return;
+        }
+
+        // 1. Snaplook Rear View Hold Check
+        Module snapMod = modules.get("snaplook");
+        if (snapMod != null && snapMod.isEnabled()) {
+            int snapKey = snapMod.getKeyCode() > 0 ? snapMod.getKeyCode() : Keyboard.KEY_F;
+            boolean snapHeld = mc.currentScreen == null && Keyboard.isKeyDown(snapKey);
+            if (snapHeld) {
+                if (!snaplookActive) {
+                    snaplookActive = true;
+                    savedSnaplookView = mc.gameSettings.thirdPersonView;
+                    mc.gameSettings.thirdPersonView = 2;
+                }
+                return;
+            } else if (snaplookActive) {
+                snaplookActive = false;
+                mc.gameSettings.thirdPersonView = savedSnaplookView;
+            }
+        } else if (snaplookActive) {
+            snaplookActive = false;
+            mc.gameSettings.thirdPersonView = savedSnaplookView;
+        }
+
+        // 2. Freelook 360 Hold Check
         Module freelookMod = modules.get("freelook");
-        if (freelookMod == null || !freelookMod.isEnabled() || mc.thePlayer == null) {
+        if (freelookMod == null || !freelookMod.isEnabled()) {
             if (freelookActive) {
                 freelookActive = false;
-                if (mc.gameSettings != null) {
-                    mc.gameSettings.thirdPersonView = savedThirdPersonView;
-                }
+                mc.gameSettings.thirdPersonView = savedThirdPersonView;
             }
             return;
         }
@@ -808,7 +1018,7 @@ public final class ModuleManager {
         float boxX = (sr.getScaledWidth() - boxW) / 2.0f;
         float boxY = 6.0f;
 
-        GL4ESRenderUtils.drawBorderedRoundedRect(boxX, boxY, boxW, boxH, 4.0f, 1.0f, 0xD9111621, 0xFF00A8FF);
+        GL4ESRenderUtils.drawBorderedRoundedRect(boxX, boxY, boxW, boxH, 4.0f, 1.0f, 0xD9111621, clientThemeColor);
         String summary = "Pots: " + pots + "  |  Gapples: " + gapples + "  |  Blocks: " + blocks + "  |  Arrows: " + arrows;
         int tw = ArabicTextRenderer.getStringWidth(summary);
         ArabicTextRenderer.drawString(summary, boxX + (boxW - tw) / 2.0f, boxY + 6.0f, 0xFFE6EDF3, true);
@@ -846,24 +1056,33 @@ public final class ModuleManager {
 
         int fps = Minecraft.getDebugFPS();
         float sumMs = 0.0f;
-        for (int i = 0; i < frameTimeCount; i++) {
+        int count = Math.max(1, frameTimeCount);
+        for (int i = 0; i < count; i++) {
             sumMs += frameTimesMs[i];
         }
-        avgFrameTimeMs = frameTimeCount > 0 ? (sumMs / frameTimeCount) : 16.6f;
+        avgFrameTimeMs = sumMs / count;
         int msWhole = (int) avgFrameTimeMs;
         int msFrac = Math.abs((int) ((avgFrameTimeMs - msWhole) * 10));
         cachedFpsText = "FPS: " + fps + " (" + msWhole + "." + msFrac + "ms)";
 
         if (mc.thePlayer != null) {
-            BlockPos pos = mc.thePlayer.getPosition();
-            int dirIdx = MathHelper.floor_double((double) (mc.thePlayer.rotationYaw * 8.0F / 360.0F) + 0.5D) & 7;
+            int px = MathHelper.floor_double(mc.thePlayer.posX);
+            int py = MathHelper.floor_double(mc.thePlayer.posY);
+            int pz = MathHelper.floor_double(mc.thePlayer.posZ);
+            float yaw = MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw);
+            if (yaw < 0.0f) {
+                yaw += 360.0f;
+            }
+            int dirIdx = Math.round(yaw / 45.0f) % 8;
             String dir = CARDINAL_DIRS[dirIdx];
-            cachedCoordsText = "X:" + pos.getX() + " Y:" + pos.getY() + " Z:" + pos.getZ() + " [" + dir + "]";
-            int normYaw = ((int) MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw) + 360) % 360;
-            cachedDirectionText = dir + " | " + normYaw + " deg";
-        } else {
-            cachedCoordsText = "X: 128 Y: 64 Z: -256 [N]";
-            cachedDirectionText = "N | 0 deg";
+            cachedCoordsText = "X:" + px + " Y:" + py + " Z:" + pz + " [" + dir + "]";
+            cachedDirectionText = dir + " | " + Math.round(yaw) + " deg";
+
+            int iron = countItem(Items.iron_ingot);
+            int gold = countItem(Items.gold_ingot);
+            int dia = countItem(Items.diamond);
+            int em = countItem(Items.emerald);
+            cachedResourceText = "Fe:" + iron + " · Au:" + gold + " · Dia:" + dia + " · Em:" + em;
         }
 
         int ping = 0;
@@ -876,9 +1095,9 @@ public final class ModuleManager {
         cachedPingText = "Ping: " + ping + " ms";
 
         Runtime rt = Runtime.getRuntime();
+        long max = rt.maxMemory();
         long total = rt.totalMemory();
         long free = rt.freeMemory();
-        long max = rt.maxMemory();
         long used = total - free;
         long usedMb = used / (1024L * 1024L);
         int pct = max > 0 ? (int) ((used * 100L) / max) : 0;
@@ -1050,6 +1269,21 @@ public final class ModuleManager {
             mc.theWorld.setThunderStrength(0.0f);
         }
 
+        // Memory Watchdog & Corpse Clear (removes lingering dead entities with deathTime >= 19)
+        if (isModuleEnabled("memory_watchdog") && mc.theWorld != null) {
+            List<Entity> entities = mc.theWorld.loadedEntityList;
+            for (int i = entities.size() - 1; i >= 0; i--) {
+                Entity e = entities.get(i);
+                if (e instanceof EntityLivingBase && e != mc.thePlayer) {
+                    EntityLivingBase living = (EntityLivingBase) e;
+                    if (living.deathTime >= 19 && !living.isDead) {
+                        living.setDead();
+                        corpseCleanedCount++;
+                    }
+                }
+            }
+        }
+
         // GL4ES Frame Pacer adaptive particle control
         if (isModuleEnabled("gl4es_optimizer") && mc.gameSettings != null) {
             int fps = Minecraft.getDebugFPS();
@@ -1169,6 +1403,10 @@ public final class ModuleManager {
         return m != null && m.isEnabled();
     }
 
+    public boolean isHitDelayFixEnabled() {
+        return isModuleEnabled("hit_delay_fix");
+    }
+
     public Module getModule(String id) {
         return modules.get(id);
     }
@@ -1203,6 +1441,18 @@ public final class ModuleManager {
 
     public void setHitOverlayColor(int hitOverlayColor) {
         this.hitOverlayColor = hitOverlayColor;
+    }
+
+    public int getClientThemeColor() {
+        return clientThemeColor;
+    }
+
+    public void setClientThemeColor(int clientThemeColor) {
+        this.clientThemeColor = clientThemeColor | 0xFF000000;
+    }
+
+    public int getCorpseCleanedCount() {
+        return corpseCleanedCount;
     }
 
     public boolean isFreelookActive() {

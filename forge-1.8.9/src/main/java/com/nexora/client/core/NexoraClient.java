@@ -100,10 +100,12 @@ public class NexoraClient {
             return;
         }
         if (openGuiKey.isPressed()) {
+            moduleManager.playUiClickSound();
             mc.displayGuiScreen(new GuiNexoraMain());
             return;
         }
         if (openHudEditorKey.isPressed()) {
+            moduleManager.playUiClickSound();
             mc.displayGuiScreen(new GuiHudEditor());
             return;
         }
@@ -115,12 +117,14 @@ public class NexoraClient {
             List<Module> all = moduleManager.getAllModules();
             for (int i = 0; i < all.size(); i++) {
                 Module m = all.get(i);
-                // Hold-to-use modules (freelook, zoom) are polled directly in camera/FOV events
-                if ("freelook".equals(m.getId()) || "zoom".equals(m.getId())) {
+                // Hold-to-use perspective/camera modules are polled in camera/FOV hooks
+                if ("freelook".equals(m.getId()) || "zoom".equals(m.getId()) || "snaplook".equals(m.getId())) {
                     continue;
                 }
                 if (m.getKeyCode() == key) {
                     m.toggle();
+                    moduleManager.playUiClickSound();
+                    moduleManager.pushModuleToggleToast(m);
                     configManager.saveProfileAsync(profileManager.getActiveProfile());
                 }
             }

@@ -9,6 +9,7 @@ import {
   deleteProfileSafely,
   parseAndValidateConfig,
   EXTERNAL_MODS_MATRIX,
+  HITDELAYFIX_REFERENCE_AUDIT,
   CURRENT_CONFIG_SCHEMA_VERSION,
 } from './core/nexoraEngine';
 import { NexoraLogo } from './components/NexoraLogo';
@@ -1242,6 +1243,68 @@ export default function App() {
                               <div className="text-[#E6EDF3] mt-0.5 font-medium">
                                 {isRtl ? ext.recommendationAr : ext.recommendationEn}
                               </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* HitDelayFix 1.1.6 Reference Archive Engineering Audit */}
+              {activeSection === 'mods' && (
+                <div className="bg-[#111621] border border-[#21262D] rounded-lg p-5 space-y-4 mt-6">
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-[#E6EDF3] flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-[#A371F7]" />
+                      <span>
+                        {isRtl
+                          ? 'تحليل الحزمة المرجعية (HitDelayFix 1.1.6 — 163 Class Archive Audit)'
+                          : 'Reference Archive Engineering Audit (HitDelayFix 1.1.6 — 163 Classes)'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-[#8B949E]">
+                      {isRtl
+                        ? 'فحص شامل لكلاسات وشيدرات الأرشيف المرجعي: اعتماد الإصلاحات القانونية (1.8.9 HitDelayFix و Toast UI) واستبعاد أدوات الغش وإخفاء الملفات.'
+                        : 'Complete audit of the reference archive: clean adoption of legitimate 1.8.9 HitDelayFix & UI patterns, GL4ES adaptation of blur shaders, and strict rejection of unfair/evasion classes.'}
+                    </p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-start border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-[#21262D] text-[#8B949E]">
+                          <th className="py-2.5 px-3 text-start">{isRtl ? 'مجموعة الكلاسات المرجعية' : 'Reference Class Group'}</th>
+                          <th className="py-2.5 px-3 text-start">{isRtl ? 'القرار الهندسي' : 'Decision'}</th>
+                          <th className="py-2.5 px-3 text-start">{isRtl ? 'التنفيذ النظيف في NEXORA' : 'Clean NEXORA Implementation'}</th>
+                          <th className="py-2.5 px-3 text-start">{isRtl ? 'السبب التقني والأمني' : 'Technical & Fair-Play Rationale'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#21262D]">
+                        {HITDELAYFIX_REFERENCE_AUDIT.map((entry) => (
+                          <tr key={entry.id} className="hover:bg-[#161B22]/60">
+                            <td className="py-2.5 px-3 font-mono font-semibold text-[#E6EDF3]" dir="ltr">
+                              {entry.classGroup}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono" dir="ltr">
+                              <span
+                                className={
+                                  entry.decision === 'ADOPTED_CLEAN'
+                                    ? 'text-[#3FB950]'
+                                    : entry.decision === 'ADAPTED_GL4ES'
+                                    ? 'text-[#00A8FF]'
+                                    : 'text-[#F85149]'
+                                }
+                              >
+                                {entry.decision}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[#E6EDF3]" dir="ltr">
+                              {entry.nexoraEquivalent}
+                            </td>
+                            <td className="py-2.5 px-3 text-[#8B949E]">
+                              {isRtl ? entry.reasonAr : entry.reasonEn}
                             </td>
                           </tr>
                         ))}

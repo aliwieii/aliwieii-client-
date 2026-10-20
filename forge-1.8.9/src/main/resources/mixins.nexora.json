@@ -5,6 +5,7 @@
   "refmap": "mixins.nexora.refmap.json",
   "compatibilityLevel": "JAVA_8",
   "client": [
+    "MixinMinecraft",
     "MixinEntityRenderer",
     "MixinGuiIngame",
     "MixinRendererLivingEntity"
