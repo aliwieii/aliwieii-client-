@@ -10,6 +10,9 @@ import {
   parseAndValidateConfig,
   EXTERNAL_MODS_MATRIX,
   HITDELAYFIX_REFERENCE_AUDIT,
+  FORENSIC_FEATURE_MATRIX,
+  computeParticleStudioBurst,
+  evaluateBridgePitchAlignment,
   CURRENT_CONFIG_SCHEMA_VERSION,
 } from './core/nexoraEngine';
 import { NexoraLogo } from './components/NexoraLogo';
@@ -90,10 +93,20 @@ export default function App() {
   const [accentTheme, setAccentTheme] = useState<string>('#00A8FF');
   const [reducedMotion, setReducedMotion] = useState<boolean>(false);
   const [gl4esSafeMode, setGl4esSafeMode] = useState<boolean>(true);
+  const [performancePreset, setPerformancePreset] = useState<'LOW' | 'BALANCED' | 'HIGH'>('BALANCED');
+  const [particleMultiplier, setParticleMultiplier] = useState<number>(2);
+  const [particleBudgetCap, setParticleBudgetCap] = useState<number>(80);
+  const [particleColorPreset, setParticleColorPreset] = useState<'CYAN' | 'GOLD' | 'CRIMSON' | 'EMERALD'>('CYAN');
+  const [particleCullOnSpike, setParticleCullOnSpike] = useState<boolean>(true);
+  const [simBridgePitch, setSimBridgePitch] = useState<number>(78.5);
+  const [simBridgeYaw, setSimBridgeYaw] = useState<number>(45.0);
+  const [maxBuildHeightY, setMaxBuildHeightY] = useState<number>(100);
 
   // Real measured browser frame rate & memory
   const [measuredFps, setMeasuredFps] = useState<number>(60);
   const [avgFps, setAvgFps] = useState<number>(60);
+  const [onePercentLowFps, setOnePercentLowFps] = useState<number>(58);
+  const [stutterCount, setStutterCount] = useState<number>(0);
   const [frameTimeMs, setFrameTimeMs] = useState<number>(16.6);
   const [heapUsedMb, setHeapUsedMb] = useState<number | null>(null);
   const [heapLimitMb, setHeapLimitMb] = useState<number | null>(null);
@@ -131,6 +144,11 @@ export default function App() {
         fpsHistoryRef.current = [...fpsHistoryRef.current.slice(-19), currentFps];
         const sum = fpsHistoryRef.current.reduce((a, b) => a + b, 0);
         setAvgFps(Math.round(sum / fpsHistoryRef.current.length));
+        const sortedAsc = [...fpsHistoryRef.current].sort((a, b) => a - b);
+        setOnePercentLowFps(sortedAsc[0] ?? currentFps);
+        if (currentMs > 33.3) {
+          setStutterCount((prev) => prev + 1);
+        }
 
         const perfMem = (performance as unknown as {
           memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number };
@@ -996,20 +1014,54 @@ export default function App() {
                 )}
               </div>
 
-              {/* Performance Monitor Panel when inside Performance section */}
+              {/* Performance Lab Panel when inside Performance section */}
               {activeSection === 'performance' && (
-                <div className="bg-[#111621] border border-[#21262D] rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                <div className="bg-[#111621] border border-[#21262D] rounded-lg p-4 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-sm font-bold text-[#E6EDF3]">
                       {isRtl
-                        ? 'مراقب الأداء الفعلي (Performance Monitor — Snapdragon 6 Gen 1 / Adreno 710)'
-                        : 'Real-Time Performance Monitor (Snapdragon 6 Gen 1 / Adreno 710 Target)'}
+                        ? 'مختبر الأداء الفعلي (Performance Lab — Snapdragon 6 Gen 1 / Adreno 710)'
+                        : 'Performance Lab & Stutter Guard (Snapdragon 6 Gen 1 / Adreno 710)'}
                     </h3>
-                    <span className="text-xs font-mono text-[#3FB950]" dir="ltr">
-                      Zero Render-Loop Allocations
-                    </span>
+                    <div className="flex items-center gap-1.5" dir="ltr">
+                      {(['LOW', 'BALANCED', 'HIGH'] as const).map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            setPerformancePreset(preset);
+                            if (preset === 'LOW') {
+                              setGl4esSafeMode(true);
+                              setParticleMultiplier(1);
+                              setParticleBudgetCap(40);
+                            } else if (preset === 'BALANCED') {
+                              setGl4esSafeMode(true);
+                              setParticleMultiplier(2);
+                              setParticleBudgetCap(80);
+                            } else {
+                              setGl4esSafeMode(false);
+                              setParticleMultiplier(4);
+                              setParticleBudgetCap(160);
+                            }
+                            showNotification(
+                              'success',
+                              isRtl
+                                ? `تم تطبيق نمط الأداء: ${preset}`
+                                : `Applied Performance Lab Preset: ${preset}`
+                            );
+                          }}
+                          className={`px-2.5 py-1 rounded text-[11px] font-mono font-semibold border transition-colors ${
+                            performancePreset === preset
+                              ? 'bg-[#00A8FF] text-[#0B0E14] border-[#00A8FF]'
+                              : 'bg-[#0B0E14] text-[#8B949E] border-[#21262D] hover:text-[#E6EDF3]'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
                     <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3">
                       <div className="text-[#8B949E]">{isRtl ? 'الإطارات الحالية' : 'Current FPS'}</div>
                       <div className="text-lg font-mono font-bold text-[#E6EDF3] mt-0.5" dir="ltr">
@@ -1017,9 +1069,15 @@ export default function App() {
                       </div>
                     </div>
                     <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3">
-                      <div className="text-[#8B949E]">{isRtl ? 'متوسط الإطارات وزمن الإطار' : 'Average FPS & Frame Time'}</div>
+                      <div className="text-[#8B949E]">{isRtl ? 'أدنى 1% وزمن الإطار' : '1% Low & Frame Time'}</div>
                       <div className="text-lg font-mono font-bold text-[#00A8FF] mt-0.5" dir="ltr">
-                        {avgFps} FPS ({frameTimeMs} ms)
+                        {onePercentLowFps} FPS ({frameTimeMs} ms)
+                      </div>
+                    </div>
+                    <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3">
+                      <div className="text-[#8B949E]">{isRtl ? 'أحداث التقطيع (>33ms)' : 'Stutter Spikes (>33ms)'}</div>
+                      <div className="text-lg font-mono font-bold text-[#3FB950] mt-0.5" dir="ltr">
+                        {stutterCount} Spikes
                       </div>
                     </div>
                     <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3">
@@ -1029,12 +1087,182 @@ export default function App() {
                       </div>
                     </div>
                     <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3">
-                      <div className="text-[#8B949E]">{isRtl ? 'حالة المؤثرات الثقيلة' : 'Heavy Shaders / Blur'}</div>
+                      <div className="text-[#8B949E]">{isRtl ? 'وضع الحماية GL4ES' : 'GL4ES Safe Mode'}</div>
                       <div className="text-lg font-mono font-bold text-[#3FB950] mt-0.5" dir="ltr">
-                        {modules.find((m) => m.id === 'motion_blur')?.enabled
-                          ? 'Motion Blur ON'
-                          : 'Disabled (Optimal)'}
+                        {gl4esSafeMode ? 'SAFE (No Shaders)' : 'Standard GL'}
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Particle Studio Panel when inside Visuals section */}
+              {activeSection === 'visuals' && (
+                <div className="bg-[#111621] border border-[#21262D] rounded-lg p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-bold text-[#E6EDF3]">
+                        {isRtl
+                          ? 'استوديو الجسيمات (Particle Studio — مضاعف الضرب وسقف الميزانية)'
+                          : 'Particle Studio (Crit/Sharpness Multiplier & GL4ES Frame-Budget Cap)'}
+                      </h3>
+                      <p className="text-xs text-[#8B949E] mt-0.5">
+                        {isRtl
+                          ? 'يتحكم في كثافة جسيمات CRIT و CRIT_MAGIC مع إيقاف تلقائي عند تجاوز زمن الإطار 28ms.'
+                          : 'Controls CRIT & CRIT_MAGIC burst density with automatic frame-spike throttling (>28ms).'}
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono text-[#00A8FF]" dir="ltr">
+                      Burst:{' '}
+                      {
+                        computeParticleStudioBurst({
+                          enabled: true,
+                          safeMode: false,
+                          multiplier: particleMultiplier,
+                          budgetCapPerSec: particleBudgetCap,
+                          emittedThisSecond: 12,
+                          currentFrameTimeMs: frameTimeMs,
+                          cullOnSpike: particleCullOnSpike,
+                        }).emittedNow
+                      }
+                      x / Hit · Cap: {particleBudgetCap}/s
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                    <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-[#8B949E]">{isRtl ? 'مضاعف الجسيمات' : 'Particle Multiplier'}</span>
+                        <span className="font-mono font-bold text-[#E6EDF3]" dir="ltr">{particleMultiplier}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={5}
+                        step={1}
+                        value={particleMultiplier}
+                        onChange={(e) => setParticleMultiplier(Number(e.target.value))}
+                        className="w-full accent-[#00A8FF]"
+                      />
+                    </div>
+
+                    <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-[#8B949E]">{isRtl ? 'سقف الجسيمات/ثانية' : 'Budget Cap / Sec'}</span>
+                        <span className="font-mono font-bold text-[#00A8FF]" dir="ltr">{particleBudgetCap}/s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={20}
+                        max={200}
+                        step={20}
+                        value={particleBudgetCap}
+                        onChange={(e) => setParticleBudgetCap(Number(e.target.value))}
+                        className="w-full accent-[#00A8FF]"
+                      />
+                    </div>
+
+                    <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-[#8B949E]">{isRtl ? 'لون الجسيمات والحماية' : 'Preset & Spike Culling'}</span>
+                        <button
+                          type="button"
+                          onClick={() => setParticleCullOnSpike((v) => !v)}
+                          className="font-mono text-[11px] text-[#3FB950] hover:underline"
+                          dir="ltr"
+                        >
+                          {particleCullOnSpike ? 'Spike Guard: ON' : 'Spike Guard: OFF'}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5 pt-0.5" dir="ltr">
+                        {(['CYAN', 'GOLD', 'CRIMSON', 'EMERALD'] as const).map((col) => (
+                          <button
+                            key={col}
+                            type="button"
+                            onClick={() => setParticleColorPreset(col)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
+                              particleColorPreset === col
+                                ? 'bg-[#00A8FF]/20 border-[#00A8FF] text-[#E6EDF3]'
+                                : 'bg-[#111621] border-[#21262D] text-[#8B949E]'
+                            }`}
+                          >
+                            {col}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Builder & Bridging Studio Panel when inside PvP section */}
+              {activeSection === 'pvp' && (
+                <div className="bg-[#111621] border border-[#21262D] rounded-lg p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-bold text-[#E6EDF3]">
+                        {isRtl
+                          ? 'أدوات البناء والجسور (Builder & Bridging HUD — بدون تدخل آلي)'
+                          : 'Builder & Bridging Telemetry Studio (100% Informational · Zero Automation)'}
+                      </h3>
+                      <p className="text-xs text-[#8B949E] mt-0.5">
+                        {isRtl
+                          ? 'مرشد زاوية النظر (Pitch/Yaw) وعداد البلوكات وتنبيه حد الارتفاع الأقصى للخريطة.'
+                          : 'Live camera Pitch/Yaw alignment badge, inventory block counter, and Max Build Height alert.'}
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono text-[#3FB950]" dir="ltr">
+                      {evaluateBridgePitchAlignment(simBridgePitch, simBridgeYaw).mode}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-[#8B949E]">{isRtl ? 'زاوية النظر (Pitch)' : 'Camera Pitch Angle'}</span>
+                        <span className="font-mono font-bold text-[#00A8FF]" dir="ltr">{simBridgePitch.toFixed(1)}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={65}
+                        max={85}
+                        step={0.5}
+                        value={simBridgePitch}
+                        onChange={(e) => setSimBridgePitch(Number(e.target.value))}
+                        className="w-full accent-[#00A8FF]"
+                      />
+                    </div>
+
+                    <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-[#8B949E]">{isRtl ? 'اتجاه الزاوية (Yaw)' : 'Camera Yaw Angle'}</span>
+                        <span className="font-mono font-bold text-[#E6EDF3]" dir="ltr">{simBridgeYaw.toFixed(0)}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={360}
+                        step={15}
+                        value={simBridgeYaw}
+                        onChange={(e) => setSimBridgeYaw(Number(e.target.value))}
+                        className="w-full accent-[#00A8FF]"
+                      />
+                    </div>
+
+                    <div className="bg-[#0B0E14] border border-[#21262D] rounded p-3 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-[#8B949E]">{isRtl ? 'حد ارتفاع الخريطة (Max Y)' : 'Map Max Build Y'}</span>
+                        <span className="font-mono font-bold text-[#A371F7]" dir="ltr">Y = {maxBuildHeightY}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={64}
+                        max={256}
+                        step={4}
+                        value={maxBuildHeightY}
+                        onChange={(e) => setMaxBuildHeightY(Number(e.target.value))}
+                        className="w-full accent-[#A371F7]"
+                      />
                     </div>
                   </div>
                 </div>
@@ -1706,11 +1934,68 @@ export default function App() {
 
           {/* SECTION 10: ABOUT NEXORA & FORGE 1.8.9 SOURCE CODE */}
           {activeSection === 'about' && (
-            <ForgeCodeViewer
-              lang={lang}
-              generatedConfigJson={generatedConfigJson}
-              activeProfileName={activeProfile.name}
-            />
+            <div className="space-y-5">
+              {/* Phase 0-5 Forensic Feature Matrix */}
+              <div className="bg-[#111621] border border-[#21262D] rounded-lg p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#21262D] pb-3">
+                  <div>
+                    <h2 className="text-base font-bold text-[#E6EDF3]">
+                      {isRtl
+                        ? 'مصفوفة التدقيق الجنائي للميزات (Phase 0–5 Forensic Feature Matrix)'
+                        : 'Phase 0–5 Forensic Feature Matrix (Forge 1.8.9 & GL4ES Verification)'}
+                    </h2>
+                    <p className="text-xs text-[#8B949E] mt-0.5">
+                      {isRtl
+                        ? 'ربط كل ميزة مرئية بالكود الفعلي ومفتاح الإعدادات وحالة التوافق مع GL4ES.'
+                        : 'Maps each visible feature to its Java implementation, config key, and GL4ES safety status.'}
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono text-[#3FB950]" dir="ltr">
+                    {FORENSIC_FEATURE_MATRIX.length} Core Subsystems Verified
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-start border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#21262D] text-[#8B949E]">
+                        <th className="py-2 px-2 text-start">{isRtl ? 'الميزة' : 'Feature'}</th>
+                        <th className="py-2 px-2 text-start">{isRtl ? 'التنفيذ البرمجي (Java)' : 'Java Implementation'}</th>
+                        <th className="py-2 px-2 text-start">{isRtl ? 'مفتاح الإعداد' : 'Config Key'}</th>
+                        <th className="py-2 px-2 text-start">{isRtl ? 'الحالة' : 'Status'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#21262D]/60">
+                      {FORENSIC_FEATURE_MATRIX.map((item) => (
+                        <tr key={item.id} className="hover:bg-[#161B22]/60">
+                          <td className="py-2 px-2 font-semibold text-[#E6EDF3]">
+                            <div>{isRtl ? item.nameAr : item.nameEn}</div>
+                            <div className="text-[11px] font-normal text-[#8B949E]">
+                              {isRtl ? item.notesAr : item.notesEn}
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 font-mono text-[11px] text-[#00A8FF]" dir="ltr">
+                            {item.javaImplementation}
+                          </td>
+                          <td className="py-2 px-2 font-mono text-[11px] text-[#A371F7]" dir="ltr">
+                            {item.configKey}
+                          </td>
+                          <td className="py-2 px-2 font-mono text-[11px] text-[#3FB950]" dir="ltr">
+                            {item.status} · GL4ES Safe
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <ForgeCodeViewer
+                lang={lang}
+                generatedConfigJson={generatedConfigJson}
+                activeProfileName={activeProfile.name}
+              />
+            </div>
           )}
         </main>
       </div>

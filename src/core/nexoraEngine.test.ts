@@ -10,6 +10,10 @@ import {
   deleteProfileSafely,
   parseAndValidateConfig,
   HITDELAYFIX_REFERENCE_AUDIT,
+  FORENSIC_FEATURE_MATRIX,
+  analyzeFrameTimeHistory,
+  computeParticleStudioBurst,
+  evaluateBridgePitchAlignment,
 } from './nexoraEngine.ts';
 
 test('createInitialModules initializes all 83 unique NEXORA modules', () => {
@@ -91,3 +95,50 @@ test('HITDELAYFIX_REFERENCE_AUDIT classifies adopted, GL4ES-adapted, and rejecte
   assert.ok(adapted.length >= 1);
   assert.ok(rejected.length >= 2);
 });
+
+test('analyzeFrameTimeHistory computes average FPS, 1% low FPS, max spike, and stutter count (>33.3ms)', () => {
+  const samples = [10, 10, 11, 10, 12, 10, 11, 10, 42.5, 10];
+  const result = analyzeFrameTimeHistory(samples);
+  assert.equal(result.stutterEvents, 1);
+  assert.equal(result.maxSpikeMs, 42.5);
+  assert.ok(result.avgFps > 60);
+  assert.ok(result.onePercentLowFps < result.avgFps);
+});
+
+test('computeParticleStudioBurst enforces budget cap and throttles on GL4ES frame spikes (>28ms)', () => {
+  const normal = computeParticleStudioBurst({
+    enabled: true,
+    safeMode: false,
+    multiplier: 4,
+    budgetCapPerSec: 80,
+    emittedThisSecond: 20,
+    currentFrameTimeMs: 11.2,
+    cullOnSpike: true,
+  });
+  assert.equal(normal.emittedNow, 4);
+  assert.equal(normal.throttledBySpike, false);
+
+  const spiked = computeParticleStudioBurst({
+    enabled: true,
+    safeMode: false,
+    multiplier: 5,
+    budgetCapPerSec: 80,
+    emittedThisSecond: 20,
+    currentFrameTimeMs: 34.0,
+    cullOnSpike: true,
+  });
+  assert.equal(spiked.emittedNow, 1);
+  assert.equal(spiked.throttledBySpike, true);
+});
+
+test('evaluateBridgePitchAlignment classifies Ninja, Godbridge, and Moonwalk angles without input automation', () => {
+  assert.equal(evaluateBridgePitchAlignment(78.5, 45).mode, 'NINJA / FAST');
+  assert.equal(evaluateBridgePitchAlignment(75.8, 180).mode, 'GODBRIDGE / FLAT');
+  assert.equal(evaluateBridgePitchAlignment(40.0, 90).isOptimal, false);
+});
+
+test('FORENSIC_FEATURE_MATRIX maps core HUD, Performance, Particle, and Builder systems', () => {
+  assert.ok(FORENSIC_FEATURE_MATRIX.length >= 10);
+  assert.ok(FORENSIC_FEATURE_MATRIX.every((f) => f.gl4esSafe));
+});
+

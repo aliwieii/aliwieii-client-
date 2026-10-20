@@ -30,7 +30,7 @@ import java.util.concurrent.Executors;
  */
 public final class ConfigManager {
 
-    public static final int CURRENT_SCHEMA_VERSION = 3;
+    public static final int CURRENT_SCHEMA_VERSION = 4;
     private static final Logger LOGGER = LogManager.getLogger("NEXORA-Config");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -92,6 +92,24 @@ public final class ConfigManager {
             }
             if (root.has("clientThemeColor")) {
                 moduleManager.setClientThemeColor(root.get("clientThemeColor").getAsInt());
+            }
+            if (root.has("performancePreset")) {
+                moduleManager.applyPerformancePreset(root.get("performancePreset").getAsInt());
+            }
+            if (root.has("safeModeActive")) {
+                moduleManager.setSafeModeActive(root.get("safeModeActive").getAsBoolean());
+            }
+            if (root.has("particleMultiplier")) {
+                moduleManager.setParticleMultiplier(root.get("particleMultiplier").getAsInt());
+            }
+            if (root.has("particleBudgetCap")) {
+                moduleManager.setParticleBudgetCap(root.get("particleBudgetCap").getAsInt());
+            }
+            if (root.has("particlePresetColor")) {
+                moduleManager.setParticlePresetColor(root.get("particlePresetColor").getAsInt());
+            }
+            if (root.has("maxBuildHeight")) {
+                moduleManager.setMaxBuildHeight(root.get("maxBuildHeight").getAsInt());
             }
 
             if (root.has("modules") && root.get("modules").isJsonObject()) {
@@ -219,6 +237,12 @@ public final class ConfigManager {
         root.addProperty("hurtCamMultiplier", moduleManager.getHurtCamMultiplier());
         root.addProperty("hitOverlayColor", moduleManager.getHitOverlayColor());
         root.addProperty("clientThemeColor", moduleManager.getClientThemeColor());
+        root.addProperty("performancePreset", moduleManager.getPerformancePreset());
+        root.addProperty("safeModeActive", moduleManager.isSafeModeActive());
+        root.addProperty("particleMultiplier", moduleManager.getParticleMultiplier());
+        root.addProperty("particleBudgetCap", moduleManager.getParticleBudgetCap());
+        root.addProperty("particlePresetColor", moduleManager.getParticlePresetColor());
+        root.addProperty("maxBuildHeight", moduleManager.getMaxBuildHeight());
 
         JsonObject modsObj = new JsonObject();
         for (Module m : moduleManager.getAllModules()) {

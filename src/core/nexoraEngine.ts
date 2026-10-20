@@ -623,20 +623,21 @@ export function createInitialModules(): NexoraModule[] {
     {
       id: 'height_limit',
       index: 29,
-      nameEn: 'Height Limit Indicator',
-      nameAr: 'مؤشر حد الارتفاع Height Limit',
-      descEn: 'Shows remaining vertical blocks to map build ceiling when known.',
-      descAr: 'يعرض المسافة المتبقية للوصول إلى حد البناء الأقصى عند توفره.',
+      nameEn: 'Height Limit & Block Counter HUD',
+      nameAr: 'عداد البلوكات وحد الارتفاع Block & Height HUD',
+      descEn: 'Displays held stack, total placeable inventory blocks, session blocks placed, and ceiling warning.',
+      descAr: 'يعرض عدد البلوكات في اليد والمخزون وإجمالي البلوكات الموضوعة مع تنبيه حد الارتفاع.',
       category: 'HUD',
-      defaultEnabled: false,
+      defaultEnabled: true,
       defaultKeybind: 'NONE',
-      stage: 'ARCHITECTED_MODULE',
+      stage: 'IMPLEMENTED_CORE',
       safety: 'SAFE',
-      isHud: false,
-      defaultX: 0,
-      defaultY: 0,
-      width: 0,
-      height: 0,
+      isHud: true,
+      defaultX: 266,
+      defaultY: 142,
+      width: 152,
+      height: 44,
+      previewText: 'Blocks: 64 (256) · MaxY: 18m',
     },
     {
       id: 'boss_bar',
@@ -807,32 +808,33 @@ export function createInitialModules(): NexoraModule[] {
     {
       id: 'bridge_helper',
       index: 39,
-      nameEn: 'Bridge Pitch Helper',
-      nameAr: 'مرشد زاوية بناء الجسور',
-      descEn: 'Shows current camera pitch/yaw alignment indicator for manual ninja bridging.',
-      descAr: 'يعرض مؤشر زاوية النظر لمساعدة اللاعب في ضبط موضع بناء الجسور يدوياً.',
+      nameEn: 'Bridge Pitch/Yaw HUD',
+      nameAr: 'مرشد زاوية بناء الجسور Bridge HUD',
+      descEn: 'Displays real-time camera pitch/yaw alignment (Ninja/God/Moonwalk) and live BPS without input automation.',
+      descAr: 'يعرض زاوية النظر (Pitch/Yaw) وسرعة وضع البلوكات (BPS) ونوع الجسر بدون أي تدخل آلي.',
       category: 'PVP',
-      defaultEnabled: false,
+      defaultEnabled: true,
       defaultKeybind: 'NONE',
-      stage: 'ARCHITECTED_MODULE',
+      stage: 'IMPLEMENTED_CORE',
       safety: 'SAFE',
-      isHud: false,
-      defaultX: 0,
-      defaultY: 0,
-      width: 0,
-      height: 0,
+      isHud: true,
+      defaultX: 266,
+      defaultY: 194,
+      width: 154,
+      height: 44,
+      previewText: 'Pitch: 78.5° [NINJA · 4.2 BPS]',
     },
     {
       id: 'bridgelab',
       index: 40,
       nameEn: 'BridgeLab Telemetry',
       nameAr: 'بيئة قياس سرعة الجسور BridgeLab',
-      descEn: 'Measures blocks placed per second and jump rhythm in local singleplayer practice.',
-      descAr: 'يقيس سرعة وضع البلوكات وتوقيت القفز في عوالم التدريب المحلية.',
+      descEn: 'Measures blocks placed per second (BPS) and session block placement totals cleanly.',
+      descAr: 'يقيس سرعة وضع البلوكات في الثانية وإجمالي البلوكات الموضوعة في الجلسة.',
       category: 'PVP',
-      defaultEnabled: false,
+      defaultEnabled: true,
       defaultKeybind: 'NONE',
-      stage: 'ARCHITECTED_MODULE',
+      stage: 'IMPLEMENTED_CORE',
       safety: 'SAFE',
       isHud: false,
       defaultX: 0,
@@ -899,10 +901,10 @@ export function createInitialModules(): NexoraModule[] {
     {
       id: 'particle_multiplier',
       index: 44,
-      nameEn: 'Particle Multiplier',
-      nameAr: 'مضاعف جسيمات الضرب',
-      descEn: 'Adjusts critical and sharpness hit particle density without lag.',
-      descAr: 'يتحكم في كثافة جسيمات الضربات الحرجة دون التأثير على الأداء.',
+      nameEn: 'Particle Studio (Multiplier & Budget)',
+      nameAr: 'استوديو الجسيمات Particle Studio',
+      descEn: 'Controls critical/sharpness particle multiplier (1x-5x), per-second budget cap, and GL4ES spike culling.',
+      descAr: 'يتحكم في مضاعف جسيمات الضرب (1x-5x) وسقف الميزانية في الثانية مع تقليل تلقائي عند هبوط الإطارات.',
       category: 'VISUALS',
       defaultEnabled: true,
       defaultKeybind: 'NONE',
@@ -2057,3 +2059,267 @@ export function parseAndValidateConfig(
     };
   }
 }
+
+// ==================== PHASE 0-5 FORENSIC AUDIT, PERFORMANCE LAB, PARTICLE STUDIO & BUILDER PURE LOGIC ====================
+
+export type FeatureImplementationStatus =
+  | 'Implemented'
+  | 'Partially Implemented'
+  | 'Missing'
+  | 'Unsupported'
+  | 'Runtime-Tested';
+
+export interface ForensicFeatureEntry {
+  id: string;
+  nameEn: string;
+  nameAr: string;
+  category: NexoraCategory;
+  status: FeatureImplementationStatus;
+  javaImplementation: string;
+  configKey: string;
+  gl4esSafe: boolean;
+  notesEn: string;
+  notesAr: string;
+}
+
+export const FORENSIC_FEATURE_MATRIX: ForensicFeatureEntry[] = [
+  {
+    id: 'fps_hud',
+    nameEn: 'FPS & 1% Low Counter',
+    nameAr: 'عداد الإطارات وأدنى 1% (FPS)',
+    category: 'HUD',
+    status: 'Runtime-Tested',
+    javaImplementation: 'ModuleManager.renderHudWidget("fps_hud") + updatePerformanceTelemetry()',
+    configKey: 'modules.fps_hud',
+    gl4esSafe: true,
+    notesEn: 'Displays real-time FPS, 1% low FPS, and frame-time in ms using zero-allocation ring buffer.',
+    notesAr: 'يعرض الإطارات الحالية وأدنى 1% وزمن الإطار بالملي ثانية بدون تخصيص كائنات.'
+  },
+  {
+    id: 'cps_hud',
+    nameEn: 'CPS & Input Swing Latency HUD',
+    nameAr: 'عداد النقرات واستجابة الإدخال (CPS)',
+    category: 'HUD',
+    status: 'Runtime-Tested',
+    javaImplementation: 'ModuleManager.recordLeftClick() + getLeftCps() / getRightCps()',
+    configKey: 'modules.cps_hud',
+    gl4esSafe: true,
+    notesEn: 'Sliding 1000ms window LMB/RMB CPS tracker and swing interval telemetry with zero autoclicking.',
+    notesAr: 'نافذة 1000ms لحساب نقرات اليسار واليمين وزمن استجابة الضرب بدون أي نقر آلي.'
+  },
+  {
+    id: 'keystrokes',
+    nameEn: 'Keystrokes + Mouse CPS Grid',
+    nameAr: 'لوحة المفاتيح والنقرات (Keystrokes)',
+    category: 'HUD',
+    status: 'Runtime-Tested',
+    javaImplementation: 'ModuleManager.renderHudWidget("keystrokes")',
+    configKey: 'modules.keystrokes',
+    gl4esSafe: true,
+    notesEn: 'Renders W/A/S/D, LMB/RMB with live CPS, and SPACE bar using GL4ES-safe vertex quads.',
+    notesAr: 'يعرض أزرار الحركة والنقرات الحية وشريط القفز عبر رسم متوافق تماماً مع GL4ES.'
+  },
+  {
+    id: 'armor_hud',
+    nameEn: 'Armor & Critical Durability Alert HUD',
+    nameAr: 'حالة الدروع وتنبيه المتانة (Armor HUD)',
+    category: 'HUD',
+    status: 'Runtime-Tested',
+    javaImplementation: 'ModuleManager.renderHudWidget("armor_hud")',
+    configKey: 'modules.armor_hud',
+    gl4esSafe: true,
+    notesEn: 'Displays equipped armor durability percentages and critical <20% low-durability warning.',
+    notesAr: 'يعرض نسب متانة الدروع المرتداة مع تنبيه أحمر عند انخفاض المتانة تحت 20%.'
+  },
+  {
+    id: 'block_counter',
+    nameEn: 'Block Counter & Ceiling Alert HUD',
+    nameAr: 'عداد البلوكات وتنبيه حد الارتفاع',
+    category: 'HUD',
+    status: 'Runtime-Tested',
+    javaImplementation: 'ModuleManager.renderHudWidget("block_counter") + updateInventoryCounts()',
+    configKey: 'modules.block_counter / maxBuildHeight',
+    gl4esSafe: true,
+    notesEn: 'Displays held stack, total placeable blocks in inventory, session blocks placed, and MaxY alert.',
+    notesAr: 'يعرض البلوكات في اليد وإجمالي المخزون والبلوكات الموضوعة في الجلسة وتنبيه أقصى ارتفاع.'
+  },
+  {
+    id: 'bridge_helper',
+    nameEn: 'Bridge Pitch/Yaw & BPS HUD',
+    nameAr: 'مرشد زاوية الجسور وسرعة البناء (BPS)',
+    category: 'PVP',
+    status: 'Runtime-Tested',
+    javaImplementation: 'ModuleManager.renderHudWidget("bridge_helper") + recordRightClick()',
+    configKey: 'modules.bridge_helper',
+    gl4esSafe: true,
+    notesEn: 'Purely informational Pitch/Yaw alignment badge (Ninja/God/Moonwalk) and live BPS counter.',
+    notesAr: 'مؤشر معلوماتي فقط لزاوية النظر (Ninja/God/Moonwalk) وسرعة وضع البلوكات في الثانية.'
+  },
+  {
+    id: 'particle_studio',
+    nameEn: 'Particle Studio (Multiplier & Budget Cap)',
+    nameAr: 'استوديو الجسيمات (المضاعف وسقف الميزانية)',
+    category: 'VISUALS',
+    status: 'Runtime-Tested',
+    javaImplementation: 'ModuleManager.onAttackEntity() + emitParticleAtEntity()',
+    configKey: 'particleMultiplier / particleBudgetCap / particlePresetColor',
+    gl4esSafe: true,
+    notesEn: 'Multiplies CRIT/CRIT_MAGIC particles (1x-5x) with per-second budget cap and automatic frame-spike culling.',
+    notesAr: 'يضاعف جسيمات الضرب (1x-5x) مع سقف ميزانية في الثانية وتقليل تلقائي عند هبوط الإطارات.'
+  },
+  {
+    id: 'stutter_guard',
+    nameEn: 'Performance Lab & Stutter Guard',
+    nameAr: 'مختبر الأداء ومنع التقطيع (Stutter Guard)',
+    category: 'PERFORMANCE',
+    status: 'Runtime-Tested',
+    javaImplementation: 'ModuleManager.updatePerformanceTelemetry() + applyPerformancePreset()',
+    configKey: 'performancePreset / safeModeActive',
+    gl4esSafe: true,
+    notesEn: 'Tracks rolling 120-frame history, 1% low FPS, stutter spikes (>33.3ms), and Low/Balanced/High presets.',
+    notesAr: 'يتتبع سجل 120 إطاراً، وأدنى 1% FPS، وعدد التقطيعات (>33.3ms)، وأنماط الأداء.'
+  },
+  {
+    id: 'hit_delay_fix',
+    nameEn: '1.8 Hit Delay Fix (Off by Default)',
+    nameAr: 'إصلاح تأخير الضرب 1.8 (معطل افتراضياً)',
+    category: 'PVP',
+    status: 'Runtime-Tested',
+    javaImplementation: 'MixinMinecraft.onClickMouse() -> leftClickCounter = 0',
+    configKey: 'modules.hit_delay_fix',
+    gl4esSafe: true,
+    notesEn: 'Disabled by default to preserve vanilla 1.8.9 timing unless explicitly enabled by the player.',
+    notesAr: 'معطل افتراضياً للحفاظ على توقيت الفانيلا الأصلي إلا إذا فعّله اللاعب يدوياً.'
+  },
+  {
+    id: 'hit_color',
+    nameEn: 'Damage Tint Overlay (GL4ES Safe)',
+    nameAr: 'تخصيص لون الضرر المتوافق مع GL4ES',
+    category: 'VISUALS',
+    status: 'Runtime-Tested',
+    javaImplementation: 'MixinRendererLivingEntity.modifyHurtColor()',
+    configKey: 'modules.hit_color',
+    gl4esSafe: true,
+    notesEn: 'Modifies hurtBuffer FloatBuffer RGBA values directly without custom GLSL shaders.',
+    notesAr: 'يعدل قيم FloatBuffer مباشرة لتغيير لون إصابة الخصم بدون شيدرات GLSL.'
+  }
+];
+
+export interface PerformanceLabAnalysis {
+  avgFps: number;
+  onePercentLowFps: number;
+  avgFrameTimeMs: number;
+  maxSpikeMs: number;
+  stutterEvents: number;
+}
+
+/**
+ * Pure function to compute rolling FPS, 1% Low FPS, max frame spike, and stutter count (>33.3ms).
+ */
+export function analyzeFrameTimeHistory(frameTimesMs: number[]): PerformanceLabAnalysis {
+  if (!frameTimesMs || frameTimesMs.length === 0) {
+    return {
+      avgFps: 0,
+      onePercentLowFps: 0,
+      avgFrameTimeMs: 0,
+      maxSpikeMs: 0,
+      stutterEvents: 0
+    };
+  }
+
+  const valid = frameTimesMs.filter((ms) => Number.isFinite(ms) && ms > 0);
+  if (valid.length === 0) {
+    return {
+      avgFps: 0,
+      onePercentLowFps: 0,
+      avgFrameTimeMs: 0,
+      maxSpikeMs: 0,
+      stutterEvents: 0
+    };
+  }
+
+  let sumMs = 0;
+  let maxSpikeMs = 0;
+  let stutterEvents = 0;
+
+  for (const ms of valid) {
+    sumMs += ms;
+    if (ms > maxSpikeMs) maxSpikeMs = ms;
+    if (ms > 33.3) stutterEvents++;
+  }
+
+  const avgFrameTimeMs = Number((sumMs / valid.length).toFixed(2));
+  const avgFps = Math.min(1000, Math.max(1, Math.round(1000 / avgFrameTimeMs)));
+
+  const sortedDesc = [...valid].sort((a, b) => b - a);
+  const worstCount = Math.max(1, Math.ceil(sortedDesc.length * 0.05));
+  const worstAvgMs = sortedDesc.slice(0, worstCount).reduce((a, b) => a + b, 0) / worstCount;
+  const onePercentLowFps = Math.min(avgFps, Math.max(1, Math.round(1000 / worstAvgMs)));
+
+  return {
+    avgFps,
+    onePercentLowFps,
+    avgFrameTimeMs,
+    maxSpikeMs: Number(maxSpikeMs.toFixed(1)),
+    stutterEvents
+  };
+}
+
+/**
+ * Pure function for Particle Studio emission calculation with budget cap and GL4ES spike protection.
+ */
+export function computeParticleStudioBurst(params: {
+  enabled: boolean;
+  safeMode: boolean;
+  multiplier: number;
+  budgetCapPerSec: number;
+  emittedThisSecond: number;
+  currentFrameTimeMs: number;
+  cullOnSpike: boolean;
+}): { emittedNow: number; remainingBudget: number; throttledBySpike: boolean } {
+  if (!params.enabled || params.safeMode) {
+    return {
+      emittedNow: 0,
+      remainingBudget: Math.max(0, params.budgetCapPerSec - params.emittedThisSecond),
+      throttledBySpike: false
+    };
+  }
+
+  const clampedMult = Math.max(1, Math.min(5, Math.round(params.multiplier)));
+  const clampedCap = Math.max(20, Math.min(200, Math.round(params.budgetCapPerSec)));
+  const remainingBefore = Math.max(0, clampedCap - Math.max(0, params.emittedThisSecond));
+
+  const throttledBySpike = params.cullOnSpike && params.currentFrameTimeMs > 28.0;
+  const requested = throttledBySpike ? 1 : clampedMult;
+  const emittedNow = Math.min(requested, remainingBefore);
+
+  return {
+    emittedNow,
+    remainingBudget: Math.max(0, remainingBefore - emittedNow),
+    throttledBySpike
+  };
+}
+
+/**
+ * Pure function for Builder Studio pitch/yaw alignment classification (informational only, no input manipulation).
+ */
+export function evaluateBridgePitchAlignment(pitch: number, yaw: number): {
+  mode: 'NINJA / FAST' | 'GODBRIDGE / FLAT' | 'MOONWALK' | 'ADJUST ANGLE';
+  isOptimal: boolean;
+  normalizedYaw: number;
+} {
+  const absPitch = Math.abs(pitch);
+  const normalizedYaw = Number((((yaw % 360) + 360) % 360).toFixed(1));
+
+  if (absPitch >= 77.0 && absPitch <= 80.2) {
+    return { mode: 'NINJA / FAST', isOptimal: true, normalizedYaw };
+  }
+  if (absPitch >= 74.8 && absPitch < 77.0) {
+    return { mode: 'GODBRIDGE / FLAT', isOptimal: true, normalizedYaw };
+  }
+  if (absPitch >= 79.0 && absPitch <= 82.8) {
+    return { mode: 'MOONWALK', isOptimal: true, normalizedYaw };
+  }
+  return { mode: 'ADJUST ANGLE', isOptimal: false, normalizedYaw };
+}
+

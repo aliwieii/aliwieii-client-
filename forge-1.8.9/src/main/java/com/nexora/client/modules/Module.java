@@ -65,8 +65,12 @@ public abstract class Module {
         setEnabled(!this.enabled);
     }
 
+    protected boolean usesForgeEventBus() {
+        return false;
+    }
+
     protected void onEnable() {
-        if (!registeredOnBus) {
+        if (usesForgeEventBus() && !registeredOnBus) {
             MinecraftForge.EVENT_BUS.register(this);
             registeredOnBus = true;
         }

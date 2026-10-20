@@ -72,6 +72,9 @@ public final class I18nManager {
         register("ui.bg_off", "خلفية: لا", "BG: OFF");
         register("ui.color", "اللون", "Color");
         register("ui.back", "رجوع", "Back");
+        register("ui.perf_preset", "وضع الأداء", "Perf Preset");
+        register("ui.particle_studio", "استوديو الجزيئات", "Particle Studio");
+        register("ui.builder_guide", "أدوات البناء والجسور", "Builder Studio");
     }
 
     private I18nManager() {

@@ -1,0 +1,101 @@
+plugins {
+    id "java"
+    id "gg.essential.loom" version "0.10.0.+"
+    id "dev.architectury.architectury-pack200" version "0.1.3"
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+}
+
+version = project.mod_version
+group = "com.nexora.client"
+archivesBaseName = "NEXORA-CLIENT"
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(8))
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+}
+
+loom {
+    launchConfigs {
+        client {
+            arg("--tweakClass", "org.spongepowered.asm.launch.MixinTweaker")
+            arg("--mixin", "mixins.nexora.json")
+        }
+    }
+    forge {
+        pack200Provider.set(new dev.architectury.pack200.java.Pack200Adapter())
+        mixinConfig("mixins.nexora.json")
+    }
+    mixin {
+        defaultRefmapName.set("mixins.nexora.refmap.json")
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://repo.spongepowered.org/repository/maven-public/" }
+    maven { url = "https://maven.minecraftforge.net/" }
+    maven { url = "https://repo.essential.gg/repository/maven-public" }
+}
+
+configurations {
+    embed
+    implementation.extendsFrom(embed)
+}
+
+dependencies {
+    minecraft("com.mojang:minecraft:1.8.9")
+    mappings("de.oceanlabs.mcp:mcp_stable:22-1.8.9")
+    forge("net.minecraftforge:forge:1.8.9-11.15.1.2318-1.8.9")
+
+    embed("org.spongepowered:mixin:0.7.11-SNAPSHOT") {
+        transitive = false
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "mcversion", project.mc_version
+
+    filesMatching("mcmod.info") {
+        expand "version": project.version, "mcversion": project.mc_version
+    }
+}
+
+jar {
+    archiveBaseName.set("NEXORA-CLIENT")
+    archiveVersion.set("${project.mod_version}-${project.mc_version}")
+    archiveClassifier.set("dev")
+
+    manifest.attributes(
+        "ModSide": "CLIENT",
+        "ForceLoadAsMod": true,
+        "TweakClass": "org.spongepowered.asm.launch.MixinTweaker",
+        "TweakOrder": "0",
+        "MixinConfigs": "mixins.nexora.json"
+    )
+}
+
+shadowJar {
+    archiveBaseName.set("NEXORA-CLIENT")
+    archiveVersion.set("${project.mod_version}-${project.mc_version}")
+    archiveClassifier.set("all-dev")
+    configurations = [project.configurations.embed]
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    exclude "META-INF/MUMFREY*"
+    exclude "LICENSE.txt"
+}
+
+remapJar {
+    input.set(shadowJar.archiveFile)
+    archiveBaseName.set("NEXORA-CLIENT")
+    archiveVersion.set("${project.mod_version}-${project.mc_version}")
+    archiveClassifier.set("")
+}
+
+tasks.named("assemble").configure {
+    dependsOn(remapJar)
+}

@@ -30,6 +30,7 @@ import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
+import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.ResourceLocation;
@@ -56,11 +57,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * NEXORA CLIENT — Central Module & HUD Registry (42 Core Modules, 20 HUD Widgets).
- * Implements zero-allocation render loops, 3-layer HUD rendering guarantee for Forge 1.8.9
- * (RenderGameOverlayEvent.Post + MixinGuiIngame + RenderTickEvent safety net),
- * 1.8.9 HitDelayFix integration, In-Game Toast Notifications, and hardware-friendly telemetry
- * for PojavLauncher (Snapdragon 6 Gen 1 / Adreno 710).
+ * NEXORA CLIENT — Central Module & HUD Registry (46 Core Modules, 22 HUD Widgets).
+ * Implements zero-allocation render loops, 3-layer HUD rendering guarantee for Forge 1.8.9,
+ * Performance Lab (stutter logging, 1% low FPS, Low/Balanced/High presets),
+ * Particle Studio (Crit/Sharpness multiplier + GL4ES budget guard), and Builder Studio
+ * (Block Counter HUD, Bridge Pitch/Yaw Alignment Guide, BridgeLab BPS Speedometer, Height Limit Alert).
  */
 public final class ModuleManager {
 
@@ -75,15 +76,20 @@ public final class ModuleManager {
     private long currentRenderFrameId = 0L;
     private long lastHudRenderedFrameId = -1L;
 
-    // Real frame-time ring buffer (60 frames, primitive float array)
+    // Real frame-time ring buffer (60 frames, primitive float array) + Performance Lab Stutter Tracker
     private final float[] frameTimesMs = new float[60];
     private int frameTimeHead = 0;
     private int frameTimeCount = 0;
     private long lastFrameNano = System.nanoTime();
     private float currentFrameTimeMs = 16.6f;
     private float avgFrameTimeMs = 16.6f;
+    private float maxFrameSpikeMs = 16.6f;
+    private int onePercentLowFps = 60;
+    private int stutterEventCount = 0;
+    private int performancePreset = 1; // 0 = Low (Mobile GL4ES), 1 = Balanced, 2 = High Quality
+    private boolean safeModeActive = false;
 
-    // Primitive ring buffers for CPS (zero boxing in render loop)
+    // Primitive ring buffers for CPS & Block Placement Speed (zero boxing in render loop)
     private final long[] leftClicks = new long[128];
     private int leftClickHead = 0;
     private int leftClickCount = 0;
@@ -95,6 +101,19 @@ public final class ModuleManager {
     private int rightClickCount = 0;
     private long lastRightClickRecordedMs = 0L;
     private boolean prevUseKeyDown = false;
+
+    private final long[] blockPlacements = new long[64];
+    private int blockPlaceHead = 0;
+    private int blockPlaceCount = 0;
+    private int sessionBlocksPlaced = 0;
+    private int maxBuildHeight = 100; // Default 100Y for BedWars ceiling warning
+
+    // Particle Studio State
+    private int particleMultiplier = 2; // 0 = Off, 1 = 1x, 2 = 2x, 3 = 3x
+    private int particleBudgetCap = 150; // Max extra particles per second
+    private int particlePresetColor = 0xFF00A8FF;
+    private int particlesEmittedThisSecond = 0;
+    private long particleWindowResetMs = 0L;
 
     // Combat & Session state
     private int currentCombo = 0;
@@ -121,6 +140,10 @@ public final class ModuleManager {
     private String cachedServerText = "Singleplayer";
     private String cachedPackText = "Default 1.8.9";
     private String cachedResourceText = "Fe: 0 · Au: 0 · Dia: 0 · Em: 0";
+    private String cachedBlockCounterText = "Blocks: 64 [Held: 64]";
+    private String cachedBridgeGuideText = "Pitch: 76.5 [ALIGNED] | 0.0 BPS";
+    private int cachedTotalBlocks = 64;
+    private boolean cachedBridgeAligned = false;
     private final SimpleDateFormat clockFormat = new SimpleDateFormat("HH:mm:ss");
 
     // Movement, Camera & Visual state flags read by Mixins & Forge Events
@@ -474,12 +497,32 @@ public final class ModuleManager {
             }
         });
 
+        // 21. Builder Block Counter HUD
+        register(new HudModule("block_counter", "Block Counter HUD", "عداد البلوكات للبناء", "Displays total placeable blocks in inventory and low-block warnings", "يعرض إجمالي البلوكات القابلة للبناء في المخزون مع تنبيه عند النقص", true, 316, 152, 128, 22) {
+            @Override
+            protected void renderContent(boolean editMode) {
+                updateThrottledStrings();
+                int col = cachedTotalBlocks >= 64 ? 0xFF3FB950 : (cachedTotalBlocks >= 16 ? 0xFF00A8FF : 0xFFF85149);
+                drawCenteredText(cachedBlockCounterText, getWidth() / 2.0f, 7.0f, col);
+            }
+        });
+
+        // 22. Bridge Pitch/Yaw Alignment & Speedometer HUD
+        register(new HudModule("bridge_helper", "Bridge Pitch & BPS HUD", "مرشد زاوية الجسور وسرعة البناء", "Displays manual ninja-bridge pitch/yaw alignment and live blocks/sec", "يعرض زاوية النظر المثالية لبناء الجسور يدوياً وسرعة وضع البلوكات بالثانية", true, 316, 126, 154, 22) {
+            @Override
+            protected void renderContent(boolean editMode) {
+                updateThrottledStrings();
+                int col = cachedBridgeAligned ? 0xFF3FB950 : 0xFFE6EDF3;
+                drawCenteredText(cachedBridgeGuideText, getWidth() / 2.0f, 7.0f, col);
+            }
+        });
+
         // ====================================================================
-        // 2. PVP, VISUALS, INVENTORY & PERFORMANCE MODULES (22 Modules)
+        // 2. PVP, VISUALS, BUILDER, PARTICLE STUDIO & PERFORMANCE MODULES (24 Modules)
         // ====================================================================
 
-        // 21. 1.8.9 Hit Delay Fix (MixinMinecraft leftClickCounter = 0)
-        register(new Module("hit_delay_fix", "1.8.9 Hit Delay Fix", "إصلاح تأخير الضرب 1.8.9", "Removes the vanilla 1.8.9 10-tick attack block after a missed swing via MixinMinecraft", "يزيل عقوبة تأخير الضرب (10 تيك) في 1.8.9 بعد التلويح بالخطأ لضمان تسجيل كل ضربة فوراً", ModuleCategory.PVP, true, 0) {
+        // 23. 1.8.9 Hit Delay Fix (Server-Rule Optional — Disabled by default for strict Fair-Play compliance)
+        register(new Module("hit_delay_fix", "1.8.9 Hit Delay Fix [Opt]", "إصلاح تأخير الضرب 1.8.9 [اختياري]", "Optional removal of vanilla 1.8.9 10-tick missed-swing penalty (enable only on servers that permit it)", "خيار إزالة عقوبة تأخير الضرب (10 تيك) في 1.8.9 (معطل افتراضياً للامتثال الصارم لقواعد السيرفرات)", ModuleCategory.PVP, false, 0) {
         });
 
         // 22. Toggle Sprint
@@ -639,6 +682,22 @@ public final class ModuleManager {
                 }
             }
         });
+
+        // 43. Particle Studio & Crit Multiplier
+        register(new Module("particle_studio", "Particle Studio", "استوديو الجزيئات ومضاعف الضربات", "Customizes Critical & Sharpness hit particle density with a GL4ES frame-spike budget guard", "يتحكم بكثافة جزيئات الضربات الحرجة مع سقف حماية تلقائي لمنع هبوط الإطارات على GL4ES", ModuleCategory.VISUALS, true, 0) {
+        });
+
+        // 44. BridgeLab Placement Speedometer
+        register(new Module("bridgelab", "BridgeLab Telemetry", "مختبر سرعة البناء BridgeLab", "Measures blocks placed per second (BPS) and total session blocks during manual bridging", "يقيس سرعة وضع البلوكات في الثانية وإجمالي البلوكات الموضوعة أثناء التدريب والمباريات", ModuleCategory.PVP, true, 0) {
+        });
+
+        // 45. Height Limit & Build Ceiling Alert
+        register(new Module("height_limit", "Height Limit Alert", "تنبيه حد الارتفاع الأقصى", "Warns when approaching map build ceiling while holding blocks in BedWars/SkyWars", "ينبهك بصرياً عند الاقتراب من الحد الأقصى للبناء أثناء حمل البلوكات", ModuleCategory.PVP, true, 0) {
+        });
+
+        // 46. Performance Lab & Stutter Guard
+        register(new Module("stutter_guard", "Performance Lab & Stutter Guard", "مختبر الأداء وراصد التقطيع", "Monitors 1% low FPS, logs frame spikes (>33.3ms), and manages Low/Balanced/High presets", "يرصد أقل 1% من الإطارات ويسجل لحظات التقطيع ويدير أوضاع الأداء للهواتف", ModuleCategory.PERFORMANCE, true, 0) {
+        });
     }
 
     private void register(Module module) {
@@ -705,6 +764,12 @@ public final class ModuleManager {
                 if (frameTimeCount < frameTimesMs.length) {
                     frameTimeCount++;
                 }
+                if (deltaMs > maxFrameSpikeMs) {
+                    maxFrameSpikeMs = deltaMs;
+                }
+                if (deltaMs > 33.3f) {
+                    stutterEventCount++;
+                }
             }
             if (isModuleEnabled("time_changer") && mc.theWorld != null) {
                 mc.theWorld.setWorldTime(6000L);
@@ -762,18 +827,31 @@ public final class ModuleManager {
         }
         GlStateManager.pushMatrix();
         try {
-            // 1. Low Health Warning Edge Alert (if player HP <= 7.0)
-            if (!editMode && isModuleEnabled("low_health_warning") && mc.thePlayer != null && mc.thePlayer.getHealth() <= 7.0f && mc.thePlayer.getHealth() > 0.0f) {
+            // 1. Low Health Warning Edge Alert (if player HP <= 7.0 and not in Safe Mode)
+            if (!editMode && !safeModeActive && isModuleEnabled("low_health_warning") && mc.thePlayer != null && mc.thePlayer.getHealth() <= 7.0f && mc.thePlayer.getHealth() > 0.0f) {
                 renderLowHealthOverlay(sr);
             }
 
-            // 2. Render all Draggable HUD Widgets
+            // 2. Height Limit Ceiling Alert (when holding blocks near ceiling)
+            if (!editMode && isModuleEnabled("height_limit") && mc.thePlayer != null) {
+                int py = MathHelper.floor_double(mc.thePlayer.posY);
+                int remY = maxBuildHeight - py;
+                if (remY >= 0 && remY <= 12 && mc.thePlayer.getHeldItem() != null && mc.thePlayer.getHeldItem().getItem() instanceof ItemBlock) {
+                    String alert = "Build Limit: " + remY + "m remaining (Max " + maxBuildHeight + "Y)";
+                    int tw = ArabicTextRenderer.getStringWidth(alert);
+                    float ax = (sr.getScaledWidth() - tw) / 2.0f;
+                    GL4ESRenderUtils.drawBorderedRoundedRect(ax - 6.0f, 28.0f, tw + 12.0f, 16.0f, 3.5f, 1.0f, 0xCC111621, remY <= 4 ? 0xFFF85149 : 0xFFD29922);
+                    ArabicTextRenderer.drawString(alert, ax, 32.0f, remY <= 4 ? 0xFFF85149 : 0xFFD29922, true);
+                }
+            }
+
+            // 3. Render all Draggable HUD Widgets
             for (int i = 0, size = hudModules.size(); i < size; i++) {
                 HudModule hud = hudModules.get(i);
                 hud.renderHud(sr, editMode);
             }
 
-            // 3. Render Animated In-Game Toast Notification
+            // 4. Render Animated In-Game Toast Notification
             if (!editMode && isModuleEnabled("toast_notifications")) {
                 renderActiveToast(sr);
             }
@@ -1056,11 +1134,17 @@ public final class ModuleManager {
 
         int fps = Minecraft.getDebugFPS();
         float sumMs = 0.0f;
+        float worstMs = 16.6f;
         int count = Math.max(1, frameTimeCount);
         for (int i = 0; i < count; i++) {
-            sumMs += frameTimesMs[i];
+            float ft = frameTimesMs[i];
+            sumMs += ft;
+            if (ft > worstMs) {
+                worstMs = ft;
+            }
         }
         avgFrameTimeMs = sumMs / count;
+        onePercentLowFps = worstMs > 0.5f ? Math.max(1, Math.min(fps, Math.round(1000.0f / worstMs))) : fps;
         int msWhole = (int) avgFrameTimeMs;
         int msFrac = Math.abs((int) ((avgFrameTimeMs - msWhole) * 10));
         cachedFpsText = "FPS: " + fps + " (" + msWhole + "." + msFrac + "ms)";
@@ -1083,6 +1167,23 @@ public final class ModuleManager {
             int dia = countItem(Items.diamond);
             int em = countItem(Items.emerald);
             cachedResourceText = "Fe:" + iron + " · Au:" + gold + " · Dia:" + dia + " · Em:" + em;
+
+            cachedTotalBlocks = countBlocks();
+            int heldStack = 0;
+            if (mc.thePlayer.getHeldItem() != null && mc.thePlayer.getHeldItem().getItem() instanceof ItemBlock) {
+                heldStack = mc.thePlayer.getHeldItem().stackSize;
+            }
+            cachedBlockCounterText = "Blocks: " + cachedTotalBlocks + " [Held: " + heldStack + "]";
+
+            float pitch = mc.thePlayer.rotationPitch;
+            boolean pitchOk = pitch >= 74.5f && pitch <= 79.8f;
+            float mod45 = Math.abs(yaw % 45.0f);
+            boolean yawOk = mod45 <= 4.0f || mod45 >= 41.0f;
+            cachedBridgeAligned = pitchOk && yawOk;
+            int pWhole = (int) pitch;
+            int pFrac = Math.abs((int) ((pitch - pWhole) * 10));
+            int bps = getBlocksPerSecond();
+            cachedBridgeGuideText = "P:" + pWhole + "." + pFrac + (cachedBridgeAligned ? " [ALIGNED] " : " [AIM] ") + bps + " BPS";
         }
 
         int ping = 0;
@@ -1150,6 +1251,15 @@ public final class ModuleManager {
                 lastEnderPearlUseMs = now;
             } else if (held.getItem() == Items.golden_apple) {
                 lastGappleUseMs = now;
+            } else if (held.getItem() instanceof ItemBlock
+                && mc.objectMouseOver != null
+                && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+                blockPlacements[blockPlaceHead] = now;
+                blockPlaceHead = (blockPlaceHead + 1) & (blockPlacements.length - 1);
+                if (blockPlaceCount < blockPlacements.length) {
+                    blockPlaceCount++;
+                }
+                sessionBlocksPlaced++;
             }
         }
     }
@@ -1173,6 +1283,10 @@ public final class ModuleManager {
 
     public int getRightCps() {
         return countRecentClicks(rightClicks, rightClickCount, System.currentTimeMillis());
+    }
+
+    public int getBlocksPerSecond() {
+        return countRecentClicks(blockPlacements, blockPlaceCount, System.currentTimeMillis());
     }
 
     private int countRecentClicks(long[] buffer, int count, long now) {
@@ -1204,6 +1318,25 @@ public final class ModuleManager {
             lastReachDistance = MathHelper.clamp_float(dist, 0.0f, 6.0f);
             if (event.target instanceof EntityLivingBase) {
                 lastTargetEntity = (EntityLivingBase) event.target;
+            }
+
+            // Particle Studio: emit client-side Crit/Sharpness bursts within budget & GL4ES frame-spike guard
+            if (isModuleEnabled("particle_studio") && !safeModeActive && particleMultiplier > 1 && mc.effectRenderer != null) {
+                if (now - particleWindowResetMs >= 1000L) {
+                    particleWindowResetMs = now;
+                    particlesEmittedThisSecond = 0;
+                }
+                if (currentFrameTimeMs < 24.0f && particlesEmittedThisSecond < particleBudgetCap) {
+                    int extraBursts = Math.min(3, particleMultiplier - 1);
+                    for (int i = 0; i < extraBursts; i++) {
+                        if (particlesEmittedThisSecond + 2 > particleBudgetCap) {
+                            break;
+                        }
+                        mc.effectRenderer.emitParticleAtEntity(event.target, EnumParticleTypes.CRIT);
+                        mc.effectRenderer.emitParticleAtEntity(event.target, EnumParticleTypes.CRIT_MAGIC);
+                        particlesEmittedThisSecond += 2;
+                    }
+                }
             }
         }
     }
@@ -1473,5 +1606,95 @@ public final class ModuleManager {
 
     public float getAvgFrameTimeMs() {
         return avgFrameTimeMs;
+    }
+
+    public float getMaxFrameSpikeMs() {
+        return maxFrameSpikeMs;
+    }
+
+    public int getOnePercentLowFps() {
+        return onePercentLowFps;
+    }
+
+    public int getStutterEventCount() {
+        return stutterEventCount;
+    }
+
+    public int getPerformancePreset() {
+        return performancePreset;
+    }
+
+    public void applyPerformancePreset(int preset) {
+        this.performancePreset = MathHelper.clamp_int(preset, 0, 2);
+        if (this.performancePreset == 0) {
+            // Low / Mobile GL4ES Safe Preset
+            this.particleMultiplier = 1;
+            this.particleBudgetCap = 50;
+            if (mc.gameSettings != null) {
+                mc.gameSettings.particleSetting = 1;
+                mc.gameSettings.fancyGraphics = false;
+            }
+        } else if (this.performancePreset == 1) {
+            // Balanced Preset
+            this.particleMultiplier = 2;
+            this.particleBudgetCap = 150;
+            if (mc.gameSettings != null) {
+                mc.gameSettings.particleSetting = 0;
+            }
+        } else {
+            // High Quality Preset
+            this.particleMultiplier = 3;
+            this.particleBudgetCap = 300;
+            if (mc.gameSettings != null) {
+                mc.gameSettings.particleSetting = 0;
+            }
+        }
+    }
+
+    public boolean isSafeModeActive() {
+        return safeModeActive;
+    }
+
+    public void setSafeModeActive(boolean safeModeActive) {
+        this.safeModeActive = safeModeActive;
+        if (safeModeActive && mc.gameSettings != null) {
+            mc.gameSettings.particleSetting = 2; // Minimal particles in safe mode
+        }
+    }
+
+    public int getParticleMultiplier() {
+        return particleMultiplier;
+    }
+
+    public void setParticleMultiplier(int particleMultiplier) {
+        this.particleMultiplier = MathHelper.clamp_int(particleMultiplier, 0, 3);
+    }
+
+    public int getParticleBudgetCap() {
+        return particleBudgetCap;
+    }
+
+    public void setParticleBudgetCap(int particleBudgetCap) {
+        this.particleBudgetCap = MathHelper.clamp_int(particleBudgetCap, 25, 999);
+    }
+
+    public int getParticlePresetColor() {
+        return particlePresetColor;
+    }
+
+    public void setParticlePresetColor(int particlePresetColor) {
+        this.particlePresetColor = particlePresetColor | 0xFF000000;
+    }
+
+    public int getMaxBuildHeight() {
+        return maxBuildHeight;
+    }
+
+    public void setMaxBuildHeight(int maxBuildHeight) {
+        this.maxBuildHeight = MathHelper.clamp_int(maxBuildHeight, 64, 256);
+    }
+
+    public int getSessionBlocksPlaced() {
+        return sessionBlocksPlaced;
     }
 }

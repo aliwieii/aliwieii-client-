@@ -222,15 +222,38 @@ public class GuiNexoraMain extends GuiScreen {
             long maxMb = rt.maxMemory() / (1024L * 1024L);
 
             ArabicTextRenderer.drawString(
-                "Measured FPS: " + fps + " (" + msWhole + "." + msFrac + " ms)  |  RAM: " + usedMb + "/" + maxMb + " MB",
+                "FPS: " + fps + " (1% Low: " + mm.getOnePercentLowFps() + " | " + msWhole + "." + msFrac + " ms)  |  RAM: " + usedMb + "/" + maxMb + " MB",
                 contentX + 8,
                 cardY + 7,
                 0xFF3FB950,
                 true
             );
-            String hitDelayStatus = mm.isHitDelayFixEnabled() ? "0t (Fixed)" : "10t (Vanilla)";
+            String hitDelayStatus = mm.isHitDelayFixEnabled() ? "0t (Opt-In)" : "10t (Vanilla Fair)";
             ArabicTextRenderer.drawString(
-                "CPS: " + mm.getLeftCps() + "L/" + mm.getRightCps() + "R  |  1.8.9 HitDelay: " + hitDelayStatus + "  |  Mods: " + mm.getAllModules().size(),
+                "CPS: " + mm.getLeftCps() + "L/" + mm.getRightCps() + "R  |  BPS: " + mm.getBlocksPerSecond() + "  |  HitDelay: " + hitDelayStatus + "  |  Mods: " + mm.getAllModules().size(),
+                contentX + 8,
+                cardY + 23,
+                0xFFE6EDF3,
+                false
+            );
+            cardY += 50.0f;
+        }
+
+        // Performance Lab Live Stutter & Preset Banner on Performance Tab (selectedTab == 3)
+        if (selectedTab == 3 && searchQuery.isEmpty()) {
+            GL4ESRenderUtils.drawBorderedRoundedRect(contentX, cardY, contentW, 44.0f, 5.0f, 1.0f, 0xFF111621, 0xFF3FB950);
+            int spikeWhole = (int) mm.getMaxFrameSpikeMs();
+            int spikeFrac = Math.abs((int) ((mm.getMaxFrameSpikeMs() - spikeWhole) * 10));
+            String presetName = mm.getPerformancePreset() == 0 ? "Low (GL4ES)" : (mm.getPerformancePreset() == 1 ? "Balanced" : "High");
+            ArabicTextRenderer.drawString(
+                "Perf Lab: " + presetName + "  |  1% Low: " + mm.getOnePercentLowFps() + " FPS  |  Stutters (>33ms): " + mm.getStutterEventCount(),
+                contentX + 8,
+                cardY + 7,
+                0xFF3FB950,
+                true
+            );
+            ArabicTextRenderer.drawString(
+                "Peak Frame Spike: " + spikeWhole + "." + spikeFrac + " ms  |  Particle Cap: " + mm.getParticleBudgetCap() + "/s  |  Corpses Cleared: " + mm.getCorpseCleanedCount(),
                 contentX + 8,
                 cardY + 23,
                 0xFFE6EDF3,
@@ -360,7 +383,50 @@ public class GuiNexoraMain extends GuiScreen {
         }
         y += 48.0f;
 
-        // Card 4: Reset All Modules & HUD to Factory Defaults
+        // Card 4: Performance Lab Preset & Safe Mode
+        GL4ESRenderUtils.drawBorderedRoundedRect(contentX, y, contentW, 42.0f, 5.0f, 1.0f, 0xFF161B22, 0x33FFFFFF);
+        ArabicTextRenderer.drawString("Performance Lab Preset & Safe Mode", contentX + 10, y + 7, 0xFFE6EDF3, true);
+        String[] perfNames = { "Low (GL4ES)", "Balanced", "High", mm.isSafeModeActive() ? "Safe: ON" : "Safe: OFF" };
+        bx = contentX + 10;
+        for (int i = 0; i < 4; i++) {
+            boolean sel = (i < 3) ? (mm.getPerformancePreset() == i) : mm.isSafeModeActive();
+            int bgCol = (i == 3 && sel) ? 0xFF3FB950 : (sel ? themeAccent : 0xFF21262D);
+            GL4ESRenderUtils.drawRoundedRect(bx, y + 20, 68.0f, 16.0f, 3.5f, bgCol);
+            ArabicTextRenderer.drawString(perfNames[i], bx + 6, y + 24, sel ? 0xFF0B0E14 : 0xFFE6EDF3, false);
+            bx += 74.0f;
+        }
+        y += 48.0f;
+
+        // Card 5: Particle Studio (Crit Multiplier & Particle Budget Cap)
+        GL4ESRenderUtils.drawBorderedRoundedRect(contentX, y, contentW, 42.0f, 5.0f, 1.0f, 0xFF161B22, 0x33FFFFFF);
+        ArabicTextRenderer.drawString("Particle Studio: Crit Multiplier (" + mm.getParticleMultiplier() + "x) & Budget (" + mm.getParticleBudgetCap() + "/s)", contentX + 10, y + 7, 0xFFE6EDF3, true);
+        String[] partLabels = { "Off", "1x", "2x", "3x", "Cap:50", "Cap:150", "Cap:300" };
+        bx = contentX + 10;
+        int[] caps = { 50, 150, 300 };
+        for (int i = 0; i < partLabels.length; i++) {
+            boolean sel = (i < 4) ? (mm.getParticleMultiplier() == i) : (mm.getParticleBudgetCap() == caps[i - 4]);
+            float bw = (i < 4) ? 32.0f : 46.0f;
+            GL4ESRenderUtils.drawRoundedRect(bx, y + 20, bw, 16.0f, 3.5f, sel ? themeAccent : 0xFF21262D);
+            ArabicTextRenderer.drawString(partLabels[i], bx + 5, y + 24, sel ? 0xFF0B0E14 : 0xFFE6EDF3, false);
+            bx += bw + 5.0f;
+        }
+        y += 48.0f;
+
+        // Card 6: Builder Studio Build Height Limit Preset
+        GL4ESRenderUtils.drawBorderedRoundedRect(contentX, y, contentW, 42.0f, 5.0f, 1.0f, 0xFF161B22, 0x33FFFFFF);
+        ArabicTextRenderer.drawString("Builder Studio Ceiling Alert: " + mm.getMaxBuildHeight() + "Y", contentX + 10, y + 7, 0xFFE6EDF3, true);
+        int[] ceilPresets = { 100, 128, 180, 256 };
+        String[] ceilLabels = { "BedWars 100Y", "SkyWars 128Y", "Arena 180Y", "Vanilla 256Y" };
+        bx = contentX + 10;
+        for (int i = 0; i < ceilPresets.length; i++) {
+            boolean sel = mm.getMaxBuildHeight() == ceilPresets[i];
+            GL4ESRenderUtils.drawRoundedRect(bx, y + 20, 68.0f, 16.0f, 3.5f, sel ? themeAccent : 0xFF21262D);
+            ArabicTextRenderer.drawString(ceilLabels[i], bx + 5, y + 24, sel ? 0xFF0B0E14 : 0xFFE6EDF3, false);
+            bx += 74.0f;
+        }
+        y += 48.0f;
+
+        // Card 7: Reset All Modules & HUD to Factory Defaults
         GL4ESRenderUtils.drawBorderedRoundedRect(contentX, y, contentW, 34.0f, 5.0f, 1.0f, 0xFF161B22, 0x44F85149);
         ArabicTextRenderer.drawString("Factory Reset All Modules & HUD Positions", contentX + 10, y + 12, 0xFFE6EDF3, true);
         float resetBtnX = contentX + contentW - 76.0f;
@@ -623,14 +689,64 @@ public class GuiNexoraMain extends GuiScreen {
             }
             y += 48.0f;
 
-            // Factory Reset button
+            // Card 4: Performance Lab Preset & Safe Mode
+            bx = contentX + 10;
+            for (int i = 0; i < 4; i++) {
+                if (mouseX >= bx && mouseX <= bx + 68.0f && mouseY >= y + 20 && mouseY <= y + 36) {
+                    if (i < 3) {
+                        mm.applyPerformancePreset(i);
+                    } else {
+                        mm.setSafeModeActive(!mm.isSafeModeActive());
+                    }
+                    mm.playUiClickSound();
+                    saveActiveProfile();
+                    return;
+                }
+                bx += 74.0f;
+            }
+            y += 48.0f;
+
+            // Card 5: Particle Studio
+            bx = contentX + 10;
+            int[] caps = { 50, 150, 300 };
+            for (int i = 0; i < 7; i++) {
+                float bw = (i < 4) ? 32.0f : 46.0f;
+                if (mouseX >= bx && mouseX <= bx + bw && mouseY >= y + 20 && mouseY <= y + 36) {
+                    if (i < 4) {
+                        mm.setParticleMultiplier(i);
+                    } else {
+                        mm.setParticleBudgetCap(caps[i - 4]);
+                    }
+                    mm.playUiClickSound();
+                    saveActiveProfile();
+                    return;
+                }
+                bx += bw + 5.0f;
+            }
+            y += 48.0f;
+
+            // Card 6: Builder Ceiling Preset
+            int[] ceilPresets = { 100, 128, 180, 256 };
+            bx = contentX + 10;
+            for (int i = 0; i < ceilPresets.length; i++) {
+                if (mouseX >= bx && mouseX <= bx + 68.0f && mouseY >= y + 20 && mouseY <= y + 36) {
+                    mm.setMaxBuildHeight(ceilPresets[i]);
+                    mm.playUiClickSound();
+                    saveActiveProfile();
+                    return;
+                }
+                bx += 74.0f;
+            }
+            y += 48.0f;
+
+            // Card 7: Factory Reset button
             float resetBtnX = contentX + contentW - 76.0f;
             if (mouseX >= resetBtnX && mouseX <= resetBtnX + 66.0f && mouseY >= y + 8 && mouseY <= y + 26) {
                 for (Module m : mm.getAllModules()) {
                     m.resetToDefault();
                 }
                 mm.playUiClickSound();
-                mm.pushToast("Factory Reset", "Restored all 42 modules", 0xFFF85149);
+                mm.pushToast("Factory Reset", "Restored all " + mm.getAllModules().size() + " modules", 0xFFF85149);
                 saveActiveProfile();
                 return;
             }
@@ -643,7 +759,7 @@ public class GuiNexoraMain extends GuiScreen {
 
         // 5. Module Toggle clicks & Touch-Scroll initiation
         float cardY = listY + scrollOffset;
-        if (selectedTab == 0 && searchQuery.isEmpty()) {
+        if ((selectedTab == 0 || selectedTab == 3) && searchQuery.isEmpty()) {
             cardY += 50.0f;
         }
         List<Module> modules = mm.getAllModules();
